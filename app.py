@@ -2,7 +2,14 @@
 LexAI — Streamlit Interface
 """
 
+import os
 import streamlit as st
+
+# Streamlit Cloud: inject secrets into os.environ before rag_lexai reads them
+for _key in ("OPENAI_API_KEY", "PISTE_CLIENT_ID", "PISTE_CLIENT_SECRET"):
+    if _key in st.secrets:
+        os.environ[_key] = st.secrets[_key]
+
 from rag_lexai import charger_corpus, construire_vectorstore, creer_chaine_rag
 
 st.set_page_config(
