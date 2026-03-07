@@ -70,6 +70,22 @@ def inject_theme():
 
 inject_theme()
 
+# Masquer les éléments Streamlit Cloud (toolbar, footer, header)
+st.markdown(
+    """
+    <style>
+    #MainMenu                          { visibility: hidden; }
+    header                             { visibility: hidden; }
+    footer                             { visibility: hidden; }
+    [data-testid="manage-app-button"]  { display: none !important; }
+    [data-testid="stToolbar"]          { display: none !important; }
+    [data-testid="stDecoration"]       { display: none !important; }
+    [data-testid="stStatusWidget"]     { display: none !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 
 with st.sidebar:
