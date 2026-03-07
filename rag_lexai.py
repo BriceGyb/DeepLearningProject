@@ -1,6 +1,6 @@
 """
 LexAI - Pipeline RAG Juridique
-Architecture : Nettoyage → Chunking intelligent → ChromaDB persistant
+Architecture : Nettoyage → Chunking intelligent → FAISS persistant
                → Hybrid Search (BM25 + vectoriel) → GPT-4o-mini
 """
 
@@ -13,30 +13,30 @@ import numpy as np
 from dotenv import load_dotenv
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_chroma import Chroma
+from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_core.runnables import RunnableLambda
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from rank_bm25 import BM25Okapi
 import tiktoken
 
 load_dotenv()
 
-CHROMA_PERSIST_DIR = "./chroma_db"
+FAISS_PERSIST_DIR  = "./faiss_index"
 EMBEDDING_MODEL    = "text-embedding-3-small"
 LLM_MODEL          = "gpt-4o-mini"
 CHUNK_MAX_TOKENS   = 800
 CHUNK_SIZE_CHARS   = 2400
 CHUNK_OVERLAP_CHARS = 400
-BM25_WEIGHT        = 0.35   # poids BM25 dans le score hybride
-VECTOR_WEIGHT      = 0.65   # poids vectoriel
-TOP_K              = 5      # documents récupérés
+BM25_WEIGHT        = 0.35
+VECTOR_WEIGHT      = 0.65
+TOP_K              = 5
 
 # ── MODULE 2 — Nettoyage / Normalisation ──────────────────────────────────────
 
 class LegalTextCleaner:
-    """Nettoie les textes juridiques bruts (tiré du Module 2 de l'architecture)."""
+    """Nettoie les textes juridiques bruts."""
 
     PATTERNS = [
         r"Nota\s*:.*?(?=\n\n|\Z)",
@@ -60,10 +60,9 @@ class LegalTextCleaner:
 
 class LegalChunker:
     """
-    Chunking sémantique par article (Module 3) :
+    Chunking sémantique par article :
     - Article court (< CHUNK_MAX_TOKENS) → 1 chunk entier
     - Article long → split récursif par alinéa avec overlap
-    Chaque chunk est préfixé par [Code — Article] pour ancrer l'embedding.
     """
 
     TOKENIZER = tiktoken.get_encoding("cl100k_base")
@@ -86,12 +85,10 @@ class LegalChunker:
         }
         prefixe = f"[{article['code']} — {article['article']}]\n"
 
-        # Article court → chunk unique
         if self.compter_tokens(texte_nettoye) <= CHUNK_MAX_TOKENS:
             contenu = prefixe + f"Domaine : {article['domaine']}\n\n" + texte_nettoye
             return [Document(page_content=contenu, metadata={**meta, "chunk": 0, "nb_chunks": 1})]
 
-        # Article long → split récursif
         morceaux = self.SPLITTER.split_text(texte_nettoye)
         return [
             Document(
@@ -102,7 +99,7 @@ class LegalChunker:
         ]
 
 
-# ── MODULE 4 — Vectorisation persistante (incrémentale) ──────────────────────
+# ── MODULE 4 — Vectorisation persistante ─────────────────────────────────────
 
 cleaner = LegalTextCleaner()
 chunker = LegalChunker()
@@ -123,39 +120,37 @@ def charger_corpus(chemin_json: str) -> list[Document]:
     return documents
 
 
-def construire_vectorstore(documents: list[Document]) -> Chroma:
+def construire_vectorstore(documents: list[Document]) -> FAISS:
     """
-    ChromaDB persistant sur disque (Module 4 — incrémental).
-    Si la collection existe déjà ET que le nombre de documents correspond,
-    on recharge depuis le disque sans recalculer les embeddings.
+    FAISS persistant sur disque.
+    Charge depuis le disque si l'index existe, sinon crée et sauvegarde.
     """
     embeddings = OpenAIEmbeddings(
         model=EMBEDDING_MODEL,
         api_key=os.getenv("OPENAI_API_KEY"),
     )
 
-    # Tenter de charger depuis le disque
-    if os.path.exists(CHROMA_PERSIST_DIR):
-        vs = Chroma(
-            collection_name="lexai_corpus",
-            embedding_function=embeddings,
-            persist_directory=CHROMA_PERSIST_DIR,
-        )
-        nb_existants = vs._collection.count()
+    count_file = os.path.join(FAISS_PERSIST_DIR, "chunk_count.txt")
+
+    if os.path.exists(FAISS_PERSIST_DIR) and os.path.exists(count_file):
+        with open(count_file, "r") as f:
+            nb_existants = int(f.read().strip())
         if nb_existants == len(documents):
-            print(f"[+] Vectorstore chargé depuis le disque ({nb_existants} chunks — 0 appel API).")
+            vs = FAISS.load_local(
+                FAISS_PERSIST_DIR,
+                embeddings,
+                allow_dangerous_deserialization=True,
+            )
+            print(f"[+] Vectorstore FAISS chargé depuis le disque ({nb_existants} chunks — 0 appel API).")
             return vs
         print(f"[~] Corpus modifié ({nb_existants} → {len(documents)} chunks). Réindexation...")
-        vs.delete_collection()
 
-    # Création (appels API embedding)
-    vs = Chroma.from_documents(
-        documents=documents,
-        embedding=embeddings,
-        collection_name="lexai_corpus",
-        persist_directory=CHROMA_PERSIST_DIR,
-    )
-    print(f"[+] Vectorstore créé et persisté ({len(documents)} chunks).")
+    vs = FAISS.from_documents(documents=documents, embedding=embeddings)
+    os.makedirs(FAISS_PERSIST_DIR, exist_ok=True)
+    vs.save_local(FAISS_PERSIST_DIR)
+    with open(count_file, "w") as f:
+        f.write(str(len(documents)))
+    print(f"[+] Vectorstore FAISS créé et persisté ({len(documents)} chunks).")
     return vs
 
 
@@ -164,10 +159,9 @@ def construire_vectorstore(documents: list[Document]) -> Chroma:
 class HybridRetriever:
     """
     Reciprocal Rank Fusion entre BM25 (lexical) et vectoriel (sémantique).
-    Améliore le recall de ~20% sur les termes exacts (ex: 'Article 1240').
     """
 
-    def __init__(self, vectorstore: Chroma, documents: list[Document]):
+    def __init__(self, vectorstore: FAISS, documents: list[Document]):
         self.vs = vectorstore
         self.documents = documents
         textes_tok = [d.page_content.lower().split() for d in documents]
@@ -177,25 +171,34 @@ class HybridRetriever:
         return 1.0 / (k + rank)
 
     def invoke(self, question: str, code_filtre: str = None) -> list[Document]:
-        # 1. Recherche vectorielle
-        filtre = {"code": code_filtre} if code_filtre else None
-        vec_results = self.vs.similarity_search_with_score(
-            question, k=TOP_K * 2, filter=filtre
-        )
+        # 1. Recherche vectorielle (post-filtrage si code_filtre)
+        fetch_k = TOP_K * 4 if code_filtre else TOP_K * 2
+        vec_results = self.vs.similarity_search_with_score(question, k=fetch_k)
+
+        if code_filtre:
+            vec_results = [
+                (doc, score) for doc, score in vec_results
+                if doc.metadata.get("code") == code_filtre
+            ]
 
         # 2. Recherche BM25
         tokens = question.lower().split()
         bm25_scores = self.bm25.get_scores(tokens)
+
+        if code_filtre:
+            for i, doc in enumerate(self.documents):
+                if doc.metadata.get("code") != code_filtre:
+                    bm25_scores[i] = 0.0
+
         bm25_ranked = np.argsort(bm25_scores)[::-1][:TOP_K * 2]
 
         # 3. RRF fusion
         scores: dict[int, float] = {}
 
         for rank, (doc, _score) in enumerate(vec_results):
-            # Trouver l'index du doc dans self.documents
             idx = next(
                 (i for i, d in enumerate(self.documents) if d.page_content == doc.page_content),
-                None
+                None,
             )
             if idx is not None:
                 scores[idx] = scores.get(idx, 0) + VECTOR_WEIGHT * self._rrf(rank)
@@ -203,7 +206,6 @@ class HybridRetriever:
         for rank, idx in enumerate(bm25_ranked):
             scores[idx] = scores.get(idx, 0) + BM25_WEIGHT * self._rrf(rank)
 
-        # 4. Top-K triés par score fusionné
         top_indices = sorted(scores, key=scores.get, reverse=True)[:TOP_K]
         return [self.documents[i] for i in top_indices]
 
@@ -235,7 +237,7 @@ LANGUE_INSTRUCTIONS = {
     "en": "Answer entirely in English. Translate the legal article citations into English while keeping the original French article references (e.g. 'Article 1240 of the Civil Code').",
 }
 
-def creer_chaine_rag(vectorstore: Chroma, documents: list[Document]):
+def creer_chaine_rag(vectorstore: FAISS, documents: list[Document]):
     """Crée la chaîne RAG avec hybrid retriever (BM25 + vectoriel)."""
     hybrid = HybridRetriever(vectorstore, documents)
 
@@ -248,14 +250,13 @@ def creer_chaine_rag(vectorstore: Chroma, documents: list[Document]):
     def formater_docs(docs: list[Document]) -> str:
         return "\n\n---\n\n".join(doc.page_content for doc in docs)
 
-    # La chaîne accepte {"question": str, "langue": "fr"|"en"}
     def preparer_input(inp: dict) -> dict:
         question = inp["question"]
         langue   = inp.get("langue", "fr")
         return {
-            "context":             formater_docs(hybrid.invoke(question, inp.get("code_filtre"))),
-            "question":            question,
-            "langue_instruction":  LANGUE_INSTRUCTIONS.get(langue, LANGUE_INSTRUCTIONS["fr"]),
+            "context":            formater_docs(hybrid.invoke(question, inp.get("code_filtre"))),
+            "question":           question,
+            "langue_instruction": LANGUE_INSTRUCTIONS.get(langue, LANGUE_INSTRUCTIONS["fr"]),
         }
 
     chaine = (
@@ -286,10 +287,10 @@ def afficher_reponse(reponse: str, sources: list[Document]):
 
 def main():
     print("=" * 60)
-    print("  LexAI — RAG Juridique (Hybrid Search + Persistance)")
+    print("  LexAI — RAG Juridique (Hybrid Search + FAISS)")
     print("=" * 60)
 
-    documents  = charger_corpus("lois_francaises.json")
+    documents   = charger_corpus("lois_francaises.json")
     vectorstore = construire_vectorstore(documents)
     chaine, hybrid = creer_chaine_rag(vectorstore, documents)
 
