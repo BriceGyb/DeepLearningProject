@@ -217,29 +217,28 @@ PROMPT_JURIDIQUE = PromptTemplate(
     template="""You are LexAI, an expert legal assistant specialized in French law.
 Absolute rule: every statement must be backed by a precisely cited article of law.
 If the answer is not in the provided context, say so clearly without inventing anything.
-{langue_instruction}
 
 Legal context (retrieved articles — source texts are in French):
 {context}
 
 Question: {question}
 
-Respond using this structure:
-**Legal basis**: [Code + applicable Article]
-**Applicable text**: [Exact quote from the article]
-**Legal analysis**: [Explanation and application to the question]
-**Conclusion**: [Direct answer to the question]
+{langue_instruction}
 """
 )
 
 LANGUE_INSTRUCTIONS = {
-    "fr": "Réponds entièrement en français.",
-    "en": (
-        "Answer entirely in English. "
-        "IMPORTANT: The source articles are in French — you MUST translate ALL quoted article text into English in your response. "
-        "Keep the original French article reference (e.g. 'Article 1240 of the Civil Code / Code Civil') "
-        "but always provide an English translation of the actual legal text."
-    ),
+    "fr": """Réponds entièrement en français en utilisant cette structure :
+**Base légale** : [Code + Article applicable]
+**Texte applicable** : [Citation exacte de l'article]
+**Analyse juridique** : [Explication et application à la question]
+**Conclusion** : [Réponse directe à la question]""",
+
+    "en": """Answer entirely in English using this structure:
+**Legal basis**: [Code + applicable Article, e.g. 'Article L1225-5 of the Code du Travail']
+**Applicable text**: [ENGLISH TRANSLATION of the French article text — do NOT copy the French, translate it]
+**Legal analysis**: [Explanation and application to the question, in English]
+**Conclusion**: [Direct answer to the question, in English]""",
 }
 
 def creer_chaine_rag(vectorstore: FAISS, documents: list[Document]):
