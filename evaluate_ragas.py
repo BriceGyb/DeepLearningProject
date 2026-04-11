@@ -90,7 +90,7 @@ def executer_pipeline(paires: list[dict]) -> tuple[list, list, list, list]:
     print("\n[~] Chargement du pipeline RAG...")
     documents   = charger_corpus("lois_francaises.json")
     vectorstore = construire_vectorstore(documents)
-    chaine, hybrid, _ = creer_chaine_rag(vectorstore, documents)
+    chaine, hybrid, _, _ = creer_chaine_rag(vectorstore, documents)
     print("[+] Pipeline prêt.\n")
 
     questions, answers, contexts, ground_truths = [], [], [], []

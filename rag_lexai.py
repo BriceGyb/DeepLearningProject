@@ -172,10 +172,13 @@ class HybridRetriever:
     def _rrf(self, rank: int, k: int = 60) -> float:
         return 1.0 / (k + rank)
 
-    def invoke(self, question: str, code_filtre: str = None, top_k: int = TOP_K) -> list[Document]:
+    def invoke(self, question: str, code_filtre: str = None, top_k: int = TOP_K,
+               query_vectorielle: str = None) -> list[Document]:
+        # query_vectorielle : si HyDE actif, contient le doc hypothétique à la place de la question
+        query_vec = query_vectorielle or question
         # 1. Recherche vectorielle (post-filtrage si code_filtre)
         fetch_k = top_k * 4 if code_filtre else top_k * 2
-        vec_results = self.vs.similarity_search_with_score(question, k=fetch_k)
+        vec_results = self.vs.similarity_search_with_score(query_vec, k=fetch_k)
 
         if code_filtre:
             vec_results = [
@@ -212,7 +215,41 @@ class HybridRetriever:
         return [self.documents[i] for i in top_indices]
 
 
-# ── MODULE 10 — Cross-Encoder Reranking (BGE-Reranker) ───────────────────────
+# ── MODULE 10 — HyDE : Hypothetical Document Embeddings ─────────────────────
+
+class HyDEGenerator:
+    """
+    Hypothetical Document Embeddings — Gao et al., 2022 (arXiv:2212.10496)
+
+    Principe : au lieu d'embedder la question brute, le LLM génère d'abord
+    un 'document hypothétique' (réponse idéale fictive dans le style du corpus).
+    Ce document est ensuite embedé pour la recherche vectorielle FAISS.
+
+    Avantage : le document hypothétique est stylistiquement proche des vrais
+    articles de loi → meilleure similarité cosinus → meilleur recall.
+    Le BM25 continue sur la question originale (complémentarité).
+    """
+
+    PROMPT_HYDE = """Tu es un expert en droit français. Génère un court passage (3-4 phrases) dans le style officiel d'un article de loi français qui répondrait directement à cette question juridique. Utilise un langage juridique formel et précis. Ne cite pas d'articles réels.
+
+Question : {question}
+
+Article hypothétique :"""
+
+    def __init__(self):
+        self.llm = ChatOpenAI(
+            model=LLM_MODEL,
+            temperature=0.5,
+            api_key=os.getenv("OPENAI_API_KEY"),
+        )
+
+    def generer(self, question: str) -> str:
+        """Génère un document hypothétique dans le style d'un article de loi."""
+        prompt = self.PROMPT_HYDE.format(question=question)
+        return self.llm.invoke(prompt).content
+
+
+# ── MODULE 11 — Cross-Encoder Reranking (BGE-Reranker) ───────────────────────
 
 class CrossEncoderReranker:
     """
@@ -271,16 +308,18 @@ LANGUE_INSTRUCTIONS = {
 **Conclusion**: [Direct answer to the question, in English]""",
 }
 
-def creer_chaine_rag(vectorstore: FAISS, documents: list[Document], use_reranking: bool = False):
+def creer_chaine_rag(vectorstore: FAISS, documents: list[Document],
+                     use_reranking: bool = False, use_hyde: bool = False):
     """
     Crée la chaîne RAG avec hybrid retriever (BM25 + vectoriel).
-    use_reranking=True : ajoute un Cross-Encoder BGE-Reranker entre retrieval et génération.
-      - Fetch Top-10 via hybrid search
-      - Reranking → Top-3 (attention croisée question+document)
-    use_reranking=False : pipeline baseline Top-5 (comportement Sprint 1).
+
+    use_reranking=True : Cross-Encoder BGE-Reranker — Top-10 → Top-3
+    use_hyde=True      : HyDE — génère un doc hypothétique avant la recherche FAISS
+    Les deux sont combinables : HyDE améliore le recall, Reranking améliore la précision.
     """
     hybrid   = HybridRetriever(vectorstore, documents)
     reranker = CrossEncoderReranker() if use_reranking else None
+    hyde     = HyDEGenerator() if use_hyde else None
 
     llm = ChatOpenAI(
         model=LLM_MODEL,
@@ -295,10 +334,15 @@ def creer_chaine_rag(vectorstore: FAISS, documents: list[Document], use_rerankin
         question = inp["question"]
         langue   = inp.get("langue", "fr")
 
+        # HyDE : génère doc hypothétique pour la recherche vectorielle FAISS
+        # BM25 continue sur la question originale (complémentarité)
+        hyde_doc = hyde.generer(question) if hyde else None
+
         # Avec reranking : fetch Top-10 puis rerank → Top-3
         # Sans reranking : fetch Top-5 direct (baseline)
         fetch_k = TOP_K * 2 if reranker else TOP_K
-        docs    = hybrid.invoke(question, inp.get("code_filtre"), top_k=fetch_k)
+        docs    = hybrid.invoke(question, inp.get("code_filtre"),
+                                top_k=fetch_k, query_vectorielle=hyde_doc)
         if reranker:
             docs = reranker.rerank(question, docs)
 
@@ -314,7 +358,7 @@ def creer_chaine_rag(vectorstore: FAISS, documents: list[Document], use_rerankin
         | llm
         | StrOutputParser()
     )
-    return chaine, hybrid, reranker
+    return chaine, hybrid, reranker, hyde
 
 
 # ── Interface CLI ──────────────────────────────────────────────────────────────
@@ -341,7 +385,7 @@ def main():
 
     documents   = charger_corpus("lois_francaises.json")
     vectorstore = construire_vectorstore(documents)
-    chaine, hybrid, _ = creer_chaine_rag(vectorstore, documents)
+    chaine, hybrid, _, _ = creer_chaine_rag(vectorstore, documents)
 
     print("\n[LexAI] Prêt. Tapez 'quit' pour quitter.\n")
 
