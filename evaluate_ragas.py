@@ -30,8 +30,8 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings  # noqa: F401 (used in
 load_dotenv()
 
 EVAL_DATASET_PATH = "eval_dataset.json"
-RAGAS_RESULTS_PATH = "ragas_results.json"
-PIPELINE_RESULTS_PATH = "pipeline_outputs.json"
+RAGAS_RESULTS_PATH = "ragas_results_sprint3.json"
+PIPELINE_RESULTS_PATH = "pipeline_outputs_sprint3.json"
 
 
 # ── 1. Génération du dataset Q/A synthétique ─────────────────────────────────
@@ -88,9 +88,9 @@ def executer_pipeline(paires: list[dict]) -> tuple[list, list, list, list]:
     from rag_lexai import charger_corpus, construire_vectorstore, creer_chaine_rag
 
     print("\n[~] Chargement du pipeline RAG...")
-    documents   = charger_corpus("lois_francaises.json")
+    documents   = charger_corpus("corpus_v3.json")
     vectorstore = construire_vectorstore(documents)
-    chaine, hybrid, _, _ = creer_chaine_rag(vectorstore, documents)
+    chaine, hybrid, _, _ = creer_chaine_rag(vectorstore, documents, use_reranking=True, use_hyde=True)
     print("[+] Pipeline prêt.\n")
 
     questions, answers, contexts, ground_truths = [], [], [], []
@@ -230,7 +230,7 @@ def main():
     print("=" * 62)
 
     output = {
-        "variant":     "Hybrid BM25+FAISS — baseline Sprint 2",
+        "variant":     "Sprint 3 — Fine-tuned embeddings + HyDE + Reranking + corpus v3",
         "n_questions": len(questions),
         "metrics":     scores,
     }

@@ -21,6 +21,7 @@ CODES_CIBLES = {
     "Code du Travail":               "LEGITEXT000006072050",
     "Code de Commerce":              "LEGITEXT000005634379",
     "Code de Procédure Civile":      "LEGITEXT000006070716",
+    "Code de Procédure Pénale":      "LEGITEXT000006071154",
     "Code de la Consommation":       "LEGITEXT000006069565",
 }
 

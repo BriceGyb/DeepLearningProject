@@ -1,0 +1,9 @@
+{
+  "variant": "Sprint 3 — Fine-tuned embeddings + HyDE + Reranking + corpus v3",
+  "n_questions": 60,
+  "metrics": {
+    "faithfulness": 0.7896,
+    "context_precision": 0.8628,
+    "context_recall": 0.9667
+  }
+}

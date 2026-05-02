@@ -23,8 +23,27 @@ import tiktoken
 
 load_dotenv()
 
-FAISS_PERSIST_DIR  = "./faiss_index"
-EMBEDDING_MODEL    = "text-embedding-3-small"
+# Détection automatique du modèle fine-tuné (Sprint 3)
+# LEXAI_FORCE_OPENAI=1 pour forcer OpenAI (comparaison équitable Sprint 2)
+_FORCE_OPENAI = os.getenv("LEXAI_FORCE_OPENAI", "").lower() in ("1", "true", "yes")
+
+if _FORCE_OPENAI:
+    FINETUNED_MODEL_PATH = None
+    _USE_FINETUNED = False
+else:
+    # Priorité : var d'env (HF Hub ou local) > local repo > Desktop
+    _env_model = os.getenv("LEXAI_EMBEDDING_MODEL", "")
+    _local_candidates = [p for p in ["./lexai-embeddings", r"C:\Users\bjgyebre\Desktop\lexai-embeddings"] if os.path.exists(p)]
+    if _env_model:
+        FINETUNED_MODEL_PATH = _env_model  # peut être un nom HF Hub ex: "DrProfessor/lexai-embeddings"
+    elif _local_candidates:
+        FINETUNED_MODEL_PATH = _local_candidates[0]
+    else:
+        FINETUNED_MODEL_PATH = None
+    _USE_FINETUNED = FINETUNED_MODEL_PATH is not None
+
+FAISS_PERSIST_DIR  = "./faiss_index_v3" if _USE_FINETUNED else "./faiss_index"
+EMBEDDING_MODEL    = "text-embedding-3-small"  # fallback OpenAI si modèle fine-tuné absent
 LLM_MODEL          = "gpt-4o-mini"
 CHUNK_MAX_TOKENS   = 800
 CHUNK_SIZE_CHARS   = 2400
@@ -122,16 +141,29 @@ def charger_corpus(chemin_json: str) -> list[Document]:
     return documents
 
 
+def _creer_embeddings():
+    """Retourne le bon objet embeddings selon l'environnement."""
+    if _USE_FINETUNED:
+        try:
+            from langchain_community.embeddings import HuggingFaceEmbeddings
+        except ImportError:
+            from langchain_huggingface import HuggingFaceEmbeddings
+        print(f"[+] Embeddings : modele fine-tune LexAI Sprint 3 ({FINETUNED_MODEL_PATH})")
+        return HuggingFaceEmbeddings(
+            model_name=FINETUNED_MODEL_PATH,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
+        )
+    print(f"[+] Embeddings : OpenAI {EMBEDDING_MODEL} (modele fine-tune non detecte)")
+    return OpenAIEmbeddings(model=EMBEDDING_MODEL, api_key=os.getenv("OPENAI_API_KEY"))
+
+
 def construire_vectorstore(documents: list[Document]) -> FAISS:
     """
     FAISS persistant sur disque.
-    Charge depuis le disque si l'index existe, sinon crée et sauvegarde.
+    Sprint 3 : utilise le modèle fine-tuné (384 dims) si disponible, sinon OpenAI (1536 dims).
     """
-    embeddings = OpenAIEmbeddings(
-        model=EMBEDDING_MODEL,
-        api_key=os.getenv("OPENAI_API_KEY"),
-    )
-
+    embeddings = _creer_embeddings()
     count_file = os.path.join(FAISS_PERSIST_DIR, "chunk_count.txt")
 
     if os.path.exists(FAISS_PERSIST_DIR) and os.path.exists(count_file):
@@ -143,16 +175,16 @@ def construire_vectorstore(documents: list[Document]) -> FAISS:
                 embeddings,
                 allow_dangerous_deserialization=True,
             )
-            print(f"[+] Vectorstore FAISS chargé depuis le disque ({nb_existants} chunks — 0 appel API).")
+            print(f"[+] FAISS charge depuis le disque ({nb_existants} chunks).")
             return vs
-        print(f"[~] Corpus modifié ({nb_existants} → {len(documents)} chunks). Réindexation...")
+        print(f"[~] Corpus modifie ({nb_existants} -> {len(documents)} chunks). Reindexation...")
 
     vs = FAISS.from_documents(documents=documents, embedding=embeddings)
     os.makedirs(FAISS_PERSIST_DIR, exist_ok=True)
     vs.save_local(FAISS_PERSIST_DIR)
     with open(count_file, "w") as f:
         f.write(str(len(documents)))
-    print(f"[+] Vectorstore FAISS créé et persisté ({len(documents)} chunks).")
+    print(f"[+] FAISS cree et persiste ({len(documents)} chunks).")
     return vs
 
 

@@ -127,10 +127,6 @@ with st.sidebar:
         "Code de Commerce",
         "Code de Procédure Civile",
         "Code de la Consommation",
-        "Code de l'Environnement",
-        "Code de la Sécurité Sociale",
-        "Code de l'Action Sociale et des Familles",
-        "Code Général des Collectivités Territoriales",
     ]
     code_filtre_label = st.selectbox("Filter by code", CODES_DISPONIBLES)
     code_filtre = None if code_filtre_label == "All codes" else code_filtre_label
@@ -171,7 +167,7 @@ def traduire_snippet(texte_fr: str) -> str:
 
 @st.cache_resource(show_spinner="Loading legal corpus...")
 def charger_pipeline(use_reranking: bool = False):
-    docs = charger_corpus("lois_francaises.json")
+    docs = charger_corpus("corpus_v3.json")
     vs   = construire_vectorstore(docs)
     chaine, hybrid, reranker, _ = creer_chaine_rag(vs, docs, use_reranking=use_reranking)
     return chaine, hybrid, reranker, docs
