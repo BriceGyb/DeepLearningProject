@@ -676,20 +676,43 @@ def analyser_contrat(hybrid: "HybridRetriever", reranker, type_contrat: str, con
     config = TYPE_CONTRAT_CONFIG.get(type_contrat, {})
     code_filtre = config.get("code_filtre")
 
-    # Requête RAG : type de contrat + termes clés extraits du début du contrat
-    query = (
-        f"contrat {type_contrat} clauses obligations droits devoirs résiliation "
-        f": {contrat[:300]}"
-    )
+    # Mots-clés juridiques détectés dans le contrat (scan rapide)
+    contrat_lower = contrat.lower()
+    detected = []
+    _kw_map = {
+        "résiliation": "résiliation préavis tacite reconduction",
+        "résili": "résiliation préavis tacite reconduction",
+        "rétractation": "droit de rétractation 14 jours contrat à distance",
+        "retractation": "droit de rétractation 14 jours contrat à distance",
+        "prix": "modification unilatérale du prix clause abusive consommateur",
+        "tarif": "modification unilatérale du tarif clause abusive",
+        "responsabilité": "exclusion de responsabilité clause abusive faute lourde",
+        "garantie": "garantie légale conformité obligation vendeur",
+        "données": "données personnelles cession tiers RGPD consentement",
+        "pénalité": "clause pénale forfaitaire résiliation anticipée",
+        "tribunal": "clause attributive compétence consommateur domicile",
+        "compétence": "clause attributive compétence consommateur",
+        "non-concurrence": "clause non-concurrence durée périmètre contrepartie",
+        "période d'essai": "période d'essai durée maximale renouvellement",
+        "loyer": "loyer révision indice bail habitation",
+    }
+    for kw, expansion in _kw_map.items():
+        if kw in contrat_lower and expansion not in detected:
+            detected.append(expansion)
 
-    # HyDE : génère un article hypothétique sur les règles juridiques de ce type de contrat
+    # Requête enrichie : problématiques légales réelles présentes dans le contrat
+    base_terms = f"clauses abusives nulles illégales {type_contrat} obligations légales droits consommateur"
+    query = base_terms + (" — " + " ; ".join(detected[:6]) if detected else "")
+
+    # HyDE : article hypothétique rédigé comme un texte de loi sur ce type de contrat
     hyde = HyDEGenerator()
     hyde_doc = hyde.generer(
-        f"Quels articles de loi français régissent un {type_contrat} et définissent "
-        f"les clauses abusives, nulles ou illégales ?"
+        f"Rédige un extrait de loi français qui liste les règles impératives applicables "
+        f"à un {type_contrat} : clauses réputées abusives ou non écrites, obligations du "
+        f"professionnel envers le consommateur, sanctions en cas de violation."
     )
 
-    # Retrieval large (top 12) pour couvrir toutes les clause-types du contrat
+    # Retrieval large (top 12) — pas de filtre si aucun article trouvé avec filtre
     fetch_k = TOP_K * 2 + 2
     docs = hybrid.invoke(
         query,
@@ -698,7 +721,11 @@ def analyser_contrat(hybrid: "HybridRetriever", reranker, type_contrat: str, con
         query_vectorielle=hyde_doc,
     )
 
-    # Reranking — garde top 7 (plus de contexte que pour le chat, moins que le corpus entier)
+    # Fallback : si le filtre a trop réduit les résultats, relancer sans filtre
+    if len(docs) < 4 and code_filtre:
+        docs = hybrid.invoke(query, code_filtre=None, top_k=fetch_k, query_vectorielle=hyde_doc)
+
+    # Reranking — garde top 7
     if reranker:
         docs = reranker.rerank(query, docs, top_k=RERANKER_TOP_K + 4)
 
