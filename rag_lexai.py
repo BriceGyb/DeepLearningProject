@@ -611,9 +611,9 @@ TYPE_CONTRAT_CONFIG = {
         "hint": "Contrat entre professionnel et consommateur, clauses abusives",
     },
     "Contrat civil / Prestation de service": {
-        "code_filtre": "Code Civil",
+        "code_filtre": None,
         "icone": "📋",
-        "hint": "Prestation, sous-traitance, reconnaissance de dette",
+        "hint": "Prestation, sous-traitance, reconnaissance de dette — tous codes",
     },
     "Autre / Non spécifié": {
         "code_filtre": None,
@@ -721,8 +721,8 @@ def analyser_contrat(hybrid: "HybridRetriever", reranker, type_contrat: str, con
         query_vectorielle=hyde_doc,
     )
 
-    # Fallback : si le filtre a trop réduit les résultats, relancer sans filtre
-    if len(docs) < 4 and code_filtre:
+    # Fallback : si le filtre a trop réduit les résultats pertinents, relancer sans filtre
+    if len(docs) < 6 and code_filtre:
         docs = hybrid.invoke(query, code_filtre=None, top_k=fetch_k, query_vectorielle=hyde_doc)
 
     # Reranking — garde top 7
