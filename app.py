@@ -29,30 +29,38 @@ def generer_pdf(texte: str, titre_doc: str = "Document Juridique") -> bytes:
     """Convertit le texte markdown de la plainte/analyse en PDF imprimable (fpdf2)."""
     from fpdf import FPDF
 
+    L_MARGIN = 20
+    R_MARGIN = 20
     pdf = FPDF(orientation="P", unit="mm", format="A4")
-    pdf.set_margins(25, 34, 25)
-    pdf.set_auto_page_break(auto=True, margin=22)
+    pdf.set_margins(L_MARGIN, 30, R_MARGIN)
+    pdf.set_auto_page_break(auto=True, margin=20)
     pdf.add_page()
+
+    # Largeur utile fixe — évite tout calcul dynamique lié à la position X courante
+    W = pdf.w - L_MARGIN - R_MARGIN  # 210 - 40 = 170 mm
+
+    def _mc(h: float, txt: str) -> None:
+        """multi_cell avec reset de X pour garantir la largeur pleine."""
+        pdf.set_x(L_MARGIN)
+        pdf.multi_cell(W, h, _latin1(txt))
 
     # ── Bandeau en-tête ──────────────────────────────────────────────────────
     pdf.set_fill_color(26, 35, 126)
     pdf.rect(0, 0, 210, 18, "F")
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(255, 255, 255)
-    pdf.set_y(5)
-    pdf.cell(0, 8, _latin1(f"LexAI  —  {titre_doc}"), align="C")
+    pdf.set_xy(L_MARGIN, 5)
+    pdf.cell(W, 8, _latin1(f"LexAI  —  {titre_doc}"), align="C")
     pdf.set_text_color(0, 0, 0)
-    pdf.set_y(26)
+    pdf.set_xy(L_MARGIN, 26)
 
     # ── Rendu ligne par ligne ─────────────────────────────────────────────────
     for raw in texte.split("\n"):
         line = raw.strip()
 
-        # Ignorer séparateur de fin et note disclaimer
         if re.match(r"^-{3,}$", line) or line.startswith("Note :"):
             continue
 
-        # Ligne vide → interligne
         if not line:
             pdf.ln(3)
             continue
@@ -62,63 +70,63 @@ def generer_pdf(texte: str, titre_doc: str = "Document Juridique") -> bytes:
         if m:
             pdf.ln(4)
             pdf.set_font("Helvetica", "B", 11)
-            pdf.multi_cell(0, 7, _latin1(m.group(1)))
+            _mc(7, m.group(1))
             pdf.ln(1)
             continue
 
-        # En-têtes markdown ## ou ###
         if line.startswith("### "):
             pdf.ln(3)
             pdf.set_font("Helvetica", "B", 10)
-            pdf.multi_cell(0, 6, _latin1(line[4:]))
+            _mc(6, line[4:])
             pdf.ln(1)
             continue
         if line.startswith("## "):
             pdf.ln(4)
             pdf.set_font("Helvetica", "B", 11)
-            pdf.multi_cell(0, 7, _latin1(line[3:]))
+            _mc(7, line[3:])
             pdf.ln(1)
             continue
 
-        # Ligne OBJET
         if line.upper().startswith("OBJET"):
             pdf.ln(2)
             pdf.set_font("Helvetica", "B", 11)
-            pdf.multi_cell(0, 7, _latin1(line))
+            _mc(7, line)
             pdf.ln(2)
             continue
 
-        # Ligne entièrement en gras **texte**
         if re.match(r"^\*\*[^*]+\*\*$", line):
             pdf.set_font("Helvetica", "B", 10)
-            pdf.multi_cell(0, 6, _latin1(line[2:-2]))
+            _mc(6, line[2:-2])
             continue
 
-        # Ligne avec mélange gras / normal
+        # Ligne avec mélange gras / normal — on finit sur une nouvelle ligne
         if "**" in line:
+            pdf.set_x(L_MARGIN)
             for part in re.split(r"(\*\*[^*]+\*\*)", line):
+                if not part:
+                    continue
                 if part.startswith("**") and part.endswith("**"):
                     pdf.set_font("Helvetica", "B", 10)
                     pdf.write(6, _latin1(part[2:-2]))
                 else:
                     pdf.set_font("Helvetica", "", 10)
                     pdf.write(6, _latin1(part))
-            pdf.ln()
+            pdf.ln(6)
             continue
 
-        # Texte ordinaire
         pdf.set_font("Helvetica", "", 10)
-        pdf.multi_cell(0, 6, _latin1(line))
+        _mc(6, line)
 
     # ── Pied de page ─────────────────────────────────────────────────────────
     pdf.set_y(-16)
     pdf.set_draw_color(200, 200, 200)
-    pdf.line(25, pdf.get_y(), 185, pdf.get_y())
+    pdf.line(L_MARGIN, pdf.get_y(), pdf.w - R_MARGIN, pdf.get_y())
     pdf.ln(2)
     pdf.set_font("Helvetica", "I", 7)
     pdf.set_text_color(150, 150, 150)
+    pdf.set_x(L_MARGIN)
     pdf.cell(
-        0, 5,
+        W, 5,
         "Document genere par LexAI  |  Aide a la redaction juridique  |  Ne remplace pas l'avis d'un avocat",
         align="C",
     )
