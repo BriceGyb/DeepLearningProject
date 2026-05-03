@@ -10,7 +10,11 @@ for _key in ("OPENAI_API_KEY", "PISTE_CLIENT_ID", "PISTE_CLIENT_SECRET"):
     if _key in st.secrets:
         os.environ[_key] = st.secrets[_key]
 
-from rag_lexai import charger_corpus, construire_vectorstore, creer_chaine_rag, generer_plainte, TYPE_LITIGE_CONFIG
+from rag_lexai import (
+    charger_corpus, construire_vectorstore, creer_chaine_rag,
+    generer_plainte, TYPE_LITIGE_CONFIG,
+    analyser_contrat, TYPE_CONTRAT_CONFIG,
+)
 
 st.set_page_config(
     page_title="LexAI — Legal Assistant",
@@ -228,18 +232,20 @@ with st.sidebar:
 
     # Action buttons
     st.markdown("**Actions**")
-    if st.session_state.get("mode") == "plainte":
+    _mode = st.session_state.get("mode", "chat")
+    if _mode != "chat":
         if st.button("💬 Retour à la consultation", use_container_width=True):
             st.session_state.plainte_result = None
+            st.session_state.contrat_result = None
             st.session_state.mode = "chat"
             st.rerun()
     else:
         if st.button("📝 Rédiger une plainte", use_container_width=True):
             st.session_state.mode = "plainte"
             st.rerun()
-
-    if st.button("📄 Analyze a document", use_container_width=True):
-        st.info("Document analysis (contracts, deeds, decisions) is coming soon.")
+        if st.button("📄 Analyser un contrat", use_container_width=True):
+            st.session_state.mode = "contrat"
+            st.rerun()
 
     if st.button("👨‍⚖️ Find a lawyer", use_container_width=True):
         st.info("Connecting with partner lawyers will be available soon.")
@@ -282,6 +288,8 @@ if "mode" not in st.session_state:
     st.session_state.mode = "chat"
 if "plainte_result" not in st.session_state:
     st.session_state.plainte_result = None
+if "contrat_result" not in st.session_state:
+    st.session_state.contrat_result = None
 
 # ── Mode : Consultation ────────────────────────────────────────────────────────
 
@@ -522,4 +530,122 @@ elif st.session_state.mode == "plainte":
             "⚠️ Cette plainte est une aide à la rédaction générée par IA à partir du corpus Légifrance. "
             "Elle ne remplace pas les conseils d'un avocat. "
             "Pour les litiges complexes ou les enjeux importants, consultez un professionnel du droit."
+        )
+
+
+# ── Mode : Analyse de contrat ──────────────────────────────────────────────────
+
+elif st.session_state.mode == "contrat":
+
+    col_back, col_title = st.columns([1, 5])
+    with col_back:
+        if st.button("← Retour", use_container_width=True):
+            st.session_state.contrat_result = None
+            st.session_state.mode = "chat"
+            st.rerun()
+    with col_title:
+        st.markdown(
+            "<h1 style='font-size:2rem; margin:0'>📄 Analyser un contrat</h1>"
+            "<p style='color:gray; font-size:0.9rem; margin-top:2px'>"
+            "Collez votre contrat — LexAI identifie les clauses conformes, suspectes et illégales "
+            "en les confrontant aux articles du corpus Légifrance.</p>",
+            unsafe_allow_html=True,
+        )
+    st.divider()
+
+    with st.form("intake_contrat"):
+        col_type, col_info = st.columns([2, 3])
+        with col_type:
+            type_contrat = st.selectbox(
+                "Type de contrat *",
+                list(TYPE_CONTRAT_CONFIG.keys()),
+                help="Sélectionnez le type de contrat pour cibler les bons articles de loi.",
+            )
+        with col_info:
+            cfg = TYPE_CONTRAT_CONFIG.get(type_contrat, {})
+            st.markdown(
+                f"<div style='padding:10px 14px; background:#f0f4ff; border-radius:8px; "
+                f"border-left:4px solid #3949ab; margin-top:24px; font-size:0.88rem;'>"
+                f"{cfg.get('icone','📄')} {cfg.get('hint','')}</div>",
+                unsafe_allow_html=True,
+            )
+
+        contrat_texte = st.text_area(
+            "Texte du contrat *",
+            placeholder=(
+                "Collez ici le texte complet ou partiel de votre contrat...\n\n"
+                "Ex : CONTRAT DE TRAVAIL À DURÉE INDÉTERMINÉE\n"
+                "Entre la société XYZ SAS, ci-après « l'Employeur »,\n"
+                "Et Madame/Monsieur ..., ci-après « le Salarié »,\n\n"
+                "Article 1 — Engagement\n..."
+            ),
+            height=320,
+        )
+
+        submitted_contrat = st.form_submit_button(
+            "🔍 Analyser le contrat",
+            use_container_width=True,
+            type="primary",
+        )
+
+    if submitted_contrat:
+        if not contrat_texte.strip():
+            st.error("Veuillez coller le texte du contrat à analyser.")
+        elif len(contrat_texte.strip()) < 80:
+            st.error("Le texte du contrat est trop court pour être analysé (minimum 80 caractères).")
+        else:
+            nb_chars = len(contrat_texte)
+            with st.spinner(
+                f"🔍 Analyse en cours — RAG sur {nb_chars:,} caractères "
+                f"({nb_chars // 200} clauses estimées)..."
+            ):
+                analyse_text, analyse_docs = analyser_contrat(
+                    hybrid, reranker, type_contrat, contrat_texte
+                )
+            st.session_state.contrat_result = {
+                "text": analyse_text,
+                "sources": analyse_docs,
+                "type_contrat": type_contrat,
+            }
+
+    if st.session_state.contrat_result:
+        result = st.session_state.contrat_result
+
+        st.divider()
+        st.markdown("### 📊 Résultat de l'analyse")
+
+        with st.container(border=True):
+            st.markdown(result["text"])
+
+        st.download_button(
+            label="⬇️ Télécharger l'analyse (.txt)",
+            data=result["text"],
+            file_name="analyse_contrat_lexai.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+
+        # --- Articles utilisés ---
+        contrat_sources_uniques = []
+        vus_contrat = set()
+        for doc in result["sources"]:
+            cle = doc.metadata["article"]
+            if cle not in vus_contrat:
+                contrat_sources_uniques.append(doc)
+                vus_contrat.add(cle)
+
+        with st.expander(f"📋 {len(contrat_sources_uniques)} article(s) de loi consultés (corpus Légifrance)"):
+            for doc in contrat_sources_uniques:
+                st.markdown(
+                    f"**{doc.metadata['code']}** — {doc.metadata['article']}  \n"
+                    f"*{doc.metadata['domaine']}*  \n"
+                    f"[Voir sur Légifrance]({doc.metadata.get('url', '#')})"
+                )
+                st.caption(doc.page_content[:300] + "...")
+                st.divider()
+
+        st.info(
+            "⚠️ Cette analyse est générée par IA à partir du corpus Légifrance (2 419 articles). "
+            "Elle ne remplace pas l'avis d'un avocat spécialisé. "
+            "Pour tout contrat à enjeux importants, consultez un professionnel avant de signer."
         )

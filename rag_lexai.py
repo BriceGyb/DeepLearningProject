@@ -587,6 +587,144 @@ def generer_plainte(hybrid: "HybridRetriever", reranker, intake: dict) -> tuple:
     return reponse.content, docs
 
 
+# ── MODULE — Analyse de Contrat ───────────────────────────────────────────────
+
+TYPE_CONTRAT_CONFIG = {
+    "Bail d'habitation": {
+        "code_filtre": "Code Civil",
+        "icone": "🏠",
+        "hint": "Contrat de location immobilière (loi 89-462, Code Civil)",
+    },
+    "Contrat de travail (CDI/CDD)": {
+        "code_filtre": "Code du Travail",
+        "icone": "👔",
+        "hint": "Contrat d'embauche, période d'essai, clauses de non-concurrence",
+    },
+    "CGV / Contrat commercial (B2B)": {
+        "code_filtre": "Code de Commerce",
+        "icone": "🤝",
+        "hint": "Conditions générales de vente, contrat entre professionnels",
+    },
+    "Contrat de consommation (B2C)": {
+        "code_filtre": "Code de la Consommation",
+        "icone": "🛒",
+        "hint": "Contrat entre professionnel et consommateur, clauses abusives",
+    },
+    "Contrat civil / Prestation de service": {
+        "code_filtre": "Code Civil",
+        "icone": "📋",
+        "hint": "Prestation, sous-traitance, reconnaissance de dette",
+    },
+    "Autre / Non spécifié": {
+        "code_filtre": None,
+        "icone": "📄",
+        "hint": "Analyse tous les codes disponibles",
+    },
+}
+
+PROMPT_ANALYSE_CONTRAT = PromptTemplate(
+    input_variables=["type_contrat", "contrat", "context"],
+    template="""Tu es LexAI, un expert en droit français spécialisé dans l'analyse de contrats.
+Tu dois identifier les clauses conformes, suspectes et problématiques au regard du droit français.
+
+=== ARTICLES DE LOI APPLICABLES (corpus Légifrance — RAG) ===
+{context}
+
+=== CONTRAT À ANALYSER ===
+Type déclaré : {type_contrat}
+---
+{contrat}
+---
+
+=== INSTRUCTIONS ===
+Analyse chaque clause ou disposition significative du contrat. Utilise EXACTEMENT cette structure :
+
+## Résumé du contrat
+[Identifie : type réel du contrat, parties (désignation utilisée), objet principal, durée, rémunération/loyer si mentionnés]
+
+## Analyse des clauses
+
+Pour chaque clause ou groupe de clauses important, utilise ce format exact :
+
+### [Objet de la clause — ex : "Durée et période d'essai", "Clause de non-concurrence", "Résiliation unilatérale"]
+**Extrait :** *"[citation littérale courte de la clause — max 160 caractères]"*
+**Statut :** ✅ Conforme / ⚠️ À surveiller / ❌ Problématique
+**Article applicable :** [cite l'article exact du contexte RAG — ou "Non couvert par le corpus disponible" si absent]
+**Analyse :** [2-3 phrases : pourquoi conforme ou risqué, ce que la loi impose réellement]
+
+## Bilan global
+
+**Niveau de risque :** 🟢 Faible / 🟡 Modéré / 🔴 Élevé
+**Points critiques :** [liste des clauses ❌ — "Aucun" si tout est conforme]
+**Recommandations :** [2-3 actions concrètes : renégocier X / faire supprimer Y / demander à un avocat de vérifier Z]
+
+RÈGLES ABSOLUES :
+- Ne cite que les articles présents dans le contexte RAG fourni
+- Si une clause viole explicitement un article, cite-le mot pour mot
+- Si le contrat est incomplet ou illisible, le signaler dans le résumé
+- Reste factuel, juridique, sans dramatiser
+""",
+)
+
+
+def analyser_contrat(hybrid: "HybridRetriever", reranker, type_contrat: str, contrat: str) -> tuple:
+    """
+    Analyse un contrat et identifie les clauses problématiques via RAG.
+
+    Retourne: (analyse_text: str, sources: list[Document])
+    """
+    config = TYPE_CONTRAT_CONFIG.get(type_contrat, {})
+    code_filtre = config.get("code_filtre")
+
+    # Requête RAG : type de contrat + termes clés extraits du début du contrat
+    query = (
+        f"contrat {type_contrat} clauses obligations droits devoirs résiliation "
+        f": {contrat[:300]}"
+    )
+
+    # HyDE : génère un article hypothétique sur les règles juridiques de ce type de contrat
+    hyde = HyDEGenerator()
+    hyde_doc = hyde.generer(
+        f"Quels articles de loi français régissent un {type_contrat} et définissent "
+        f"les clauses abusives, nulles ou illégales ?"
+    )
+
+    # Retrieval large (top 12) pour couvrir toutes les clause-types du contrat
+    fetch_k = TOP_K * 2 + 2
+    docs = hybrid.invoke(
+        query,
+        code_filtre=code_filtre,
+        top_k=fetch_k,
+        query_vectorielle=hyde_doc,
+    )
+
+    # Reranking — garde top 7 (plus de contexte que pour le chat, moins que le corpus entier)
+    if reranker:
+        docs = reranker.rerank(query, docs, top_k=RERANKER_TOP_K + 4)
+
+    context = "\n\n---\n\n".join(doc.page_content for doc in docs)
+
+    # Tronquer le contrat si trop long pour le contexte GPT-4o-mini
+    contrat_tronque = contrat[:6000]
+    if len(contrat) > 6000:
+        contrat_tronque += "\n\n[... contrat tronqué — seules les 6 000 premières caractères ont été analysées ...]"
+
+    llm = ChatOpenAI(
+        model=LLM_MODEL,
+        temperature=0,
+        api_key=os.getenv("OPENAI_API_KEY"),
+    )
+
+    prompt_text = PROMPT_ANALYSE_CONTRAT.format(
+        type_contrat=type_contrat,
+        contrat=contrat_tronque,
+        context=context,
+    )
+
+    reponse = llm.invoke(prompt_text)
+    return reponse.content, docs
+
+
 # ── Interface CLI ──────────────────────────────────────────────────────────────
 
 def afficher_reponse(reponse: str, sources: list[Document]):
