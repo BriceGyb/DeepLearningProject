@@ -14,3 +14,4 @@ ragas>=0.2.0
 datasets>=2.20.0
 sentence-transformers>=3.0.0
 langchain-huggingface>=0.1.0
+fpdf2>=2.7.0

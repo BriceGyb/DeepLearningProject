@@ -3,6 +3,7 @@ LexAI — Streamlit Interface
 """
 
 import os
+import re
 import streamlit as st
 
 # Streamlit Cloud: inject secrets into os.environ before rag_lexai reads them
@@ -15,6 +16,114 @@ from rag_lexai import (
     generer_plainte, TYPE_LITIGE_CONFIG,
     analyser_contrat, TYPE_CONTRAT_CONFIG,
 )
+
+
+# ── Génération PDF ─────────────────────────────────────────────────────────────
+
+def _latin1(t: str) -> str:
+    """Encode vers Latin-1 (police Helvetica fpdf2) — retire emojis et symboles hors-range."""
+    return t.encode("latin-1", errors="ignore").decode("latin-1")
+
+
+def generer_pdf(texte: str, titre_doc: str = "Document Juridique") -> bytes:
+    """Convertit le texte markdown de la plainte/analyse en PDF imprimable (fpdf2)."""
+    from fpdf import FPDF
+
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_margins(25, 34, 25)
+    pdf.set_auto_page_break(auto=True, margin=22)
+    pdf.add_page()
+
+    # ── Bandeau en-tête ──────────────────────────────────────────────────────
+    pdf.set_fill_color(26, 35, 126)
+    pdf.rect(0, 0, 210, 18, "F")
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_y(5)
+    pdf.cell(0, 8, _latin1(f"LexAI  —  {titre_doc}"), align="C")
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_y(26)
+
+    # ── Rendu ligne par ligne ─────────────────────────────────────────────────
+    for raw in texte.split("\n"):
+        line = raw.strip()
+
+        # Ignorer séparateur de fin et note disclaimer
+        if re.match(r"^-{3,}$", line) or line.startswith("Note :"):
+            continue
+
+        # Ligne vide → interligne
+        if not line:
+            pdf.ln(3)
+            continue
+
+        # En-têtes de section romains : **I. TITRE** / **II. TITRE**
+        m = re.match(r"^\*\*([IVX]+\.\s+.+?)\*\*$", line)
+        if m:
+            pdf.ln(4)
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.multi_cell(0, 7, _latin1(m.group(1)))
+            pdf.ln(1)
+            continue
+
+        # En-têtes markdown ## ou ###
+        if line.startswith("### "):
+            pdf.ln(3)
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.multi_cell(0, 6, _latin1(line[4:]))
+            pdf.ln(1)
+            continue
+        if line.startswith("## "):
+            pdf.ln(4)
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.multi_cell(0, 7, _latin1(line[3:]))
+            pdf.ln(1)
+            continue
+
+        # Ligne OBJET
+        if line.upper().startswith("OBJET"):
+            pdf.ln(2)
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.multi_cell(0, 7, _latin1(line))
+            pdf.ln(2)
+            continue
+
+        # Ligne entièrement en gras **texte**
+        if re.match(r"^\*\*[^*]+\*\*$", line):
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.multi_cell(0, 6, _latin1(line[2:-2]))
+            continue
+
+        # Ligne avec mélange gras / normal
+        if "**" in line:
+            for part in re.split(r"(\*\*[^*]+\*\*)", line):
+                if part.startswith("**") and part.endswith("**"):
+                    pdf.set_font("Helvetica", "B", 10)
+                    pdf.write(6, _latin1(part[2:-2]))
+                else:
+                    pdf.set_font("Helvetica", "", 10)
+                    pdf.write(6, _latin1(part))
+            pdf.ln()
+            continue
+
+        # Texte ordinaire
+        pdf.set_font("Helvetica", "", 10)
+        pdf.multi_cell(0, 6, _latin1(line))
+
+    # ── Pied de page ─────────────────────────────────────────────────────────
+    pdf.set_y(-16)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.line(25, pdf.get_y(), 185, pdf.get_y())
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "I", 7)
+    pdf.set_text_color(150, 150, 150)
+    pdf.cell(
+        0, 5,
+        "Document genere par LexAI  |  Aide a la redaction juridique  |  Ne remplace pas l'avis d'un avocat",
+        align="C",
+    )
+
+    return bytes(pdf.output())
 
 st.set_page_config(
     page_title="LexAI — Legal Assistant",
@@ -486,11 +595,12 @@ elif st.session_state.mode == "plainte":
         with st.container(border=True):
             st.markdown(result["text"])
 
+        pdf_plainte = generer_pdf(result["text"], "Plainte Officielle")
         st.download_button(
-            label="⬇️ Télécharger la plainte (.txt)",
-            data=result["text"],
-            file_name="plainte_lexai.txt",
-            mime="text/plain",
+            label="⬇️ Télécharger la plainte (.pdf)",
+            data=pdf_plainte,
+            file_name="plainte_lexai.pdf",
+            mime="application/pdf",
             use_container_width=True,
         )
 
@@ -617,11 +727,12 @@ elif st.session_state.mode == "contrat":
         with st.container(border=True):
             st.markdown(result["text"])
 
+        pdf_contrat = generer_pdf(result["text"], "Analyse de Contrat")
         st.download_button(
-            label="⬇️ Télécharger l'analyse (.txt)",
-            data=result["text"],
-            file_name="analyse_contrat_lexai.txt",
-            mime="text/plain",
+            label="⬇️ Télécharger l'analyse (.pdf)",
+            data=pdf_contrat,
+            file_name="analyse_contrat_lexai.pdf",
+            mime="application/pdf",
             use_container_width=True,
         )
 
