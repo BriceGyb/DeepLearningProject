@@ -10,7 +10,7 @@ for _key in ("OPENAI_API_KEY", "PISTE_CLIENT_ID", "PISTE_CLIENT_SECRET"):
     if _key in st.secrets:
         os.environ[_key] = st.secrets[_key]
 
-from rag_lexai import charger_corpus, construire_vectorstore, creer_chaine_rag
+from rag_lexai import charger_corpus, construire_vectorstore, creer_chaine_rag, generer_plainte, TYPE_LITIGE_CONFIG
 
 st.set_page_config(
     page_title="LexAI — Legal Assistant",
@@ -27,38 +27,129 @@ def inject_theme():
     if st.session_state.dark_mode:
         css = """
         <style>
+        /* ── Fond global ── */
         html, body,
         [data-testid="stAppViewContainer"],
         [data-testid="stApp"],
-        [data-testid="block-container"] {
+        [data-testid="block-container"],
+        [data-testid="stMainBlockContainer"],
+        .main, .block-container {
             background-color: #0f1117 !important;
             color: #fafafa !important;
         }
-        [data-testid="stSidebar"] {
+
+        /* ── Sidebar ── */
+        [data-testid="stSidebar"],
+        section[data-testid="stSidebar"],
+        [data-testid="stSidebarContent"] {
             background-color: #1a1c23 !important;
         }
         [data-testid="stSidebar"] * { color: #fafafa !important; }
+
+        /* ── Colonnes et containers (bandes blanches principales) ── */
+        [data-testid="stColumn"],
+        [data-testid="stVerticalBlock"],
+        [data-testid="stHorizontalBlock"],
+        [data-testid="stContainer"] {
+            background-color: #0f1117 !important;
+        }
+
+        /* ── Formulaire ── */
+        [data-testid="stForm"] {
+            background-color: #1a1c23 !important;
+            border: 1px solid #2d3250 !important;
+            border-radius: 8px !important;
+        }
+
+        /* ── Inputs texte et textareas ── */
+        [data-testid="stTextInput"] input,
+        [data-testid="stTextArea"] textarea,
+        .stTextInput input,
+        .stTextArea textarea {
+            background-color: #0f1117 !important;
+            color: #fafafa !important;
+            border-color: #2d3250 !important;
+        }
+
+        /* ── Selectbox ── */
+        [data-testid="stSelectbox"] > div > div,
+        [data-baseweb="select"] > div {
+            background-color: #0f1117 !important;
+            color: #fafafa !important;
+            border-color: #2d3250 !important;
+        }
+        [data-baseweb="popover"] ul,
+        [data-baseweb="menu"] {
+            background-color: #1a1c23 !important;
+            color: #fafafa !important;
+        }
+        [data-baseweb="option"]:hover {
+            background-color: #2d3250 !important;
+        }
+
+        /* ── Boutons ── */
+        .stButton > button,
+        [data-testid="stDownloadButton"] button {
+            background-color: #1e2130 !important;
+            color: #fafafa !important;
+            border-color: #2d3250 !important;
+        }
+        [data-testid="stFormSubmitButton"] button[kind="primary"],
+        button[kind="primary"] {
+            background-color: #3949ab !important;
+            border-color: #3949ab !important;
+            color: #ffffff !important;
+        }
+
+        /* ── Chat ── */
         [data-testid="stChatMessageContent"] {
             background-color: #1e2130 !important;
             color: #fafafa !important;
         }
+        [data-testid="stChatInput"],
         [data-testid="stChatInput"] textarea {
-            background-color: #1e2130 !important;
+            background-color: #1a1c23 !important;
             color: #fafafa !important;
-        }
-        [data-testid="stExpander"] {
-            background-color: #1e2130 !important;
             border-color: #2d3250 !important;
         }
+
+        /* ── Expander ── */
+        [data-testid="stExpander"],
+        [data-testid="stExpanderDetails"] {
+            background-color: #1a1c23 !important;
+            border-color: #2d3250 !important;
+        }
+        [data-testid="stExpander"] summary,
+        [data-testid="stExpander"] summary * { color: #fafafa !important; }
+
+        /* ── Alertes / Info ── */
+        [data-testid="stAlert"],
+        [data-baseweb="notification"],
+        .stAlert {
+            background-color: #1e2130 !important;
+            color: #fafafa !important;
+            border-color: #2d3250 !important;
+        }
+
+        /* ── Container avec bordure (plainte générée) ── */
+        [data-testid="stContainer"][style*="border"],
+        div[data-testid="stContainer"] {
+            border-color: #2d3250 !important;
+        }
+
+        /* ── Texte générique ── */
+        p, h1, h2, h3, h4, label, span,
+        .stMarkdown, [data-testid="stMarkdownContainer"] {
+            color: #fafafa !important;
+        }
+        .stCaption, [data-testid="stCaptionContainer"] * {
+            color: #9ea3b0 !important;
+        }
+
+        /* ── Divider et scrollbar ── */
         hr { border-color: #2d3250 !important; }
-        .stButton > button {
-            background-color: #1e2130 !important;
-            color: #fafafa !important;
-            border-color: #2d3250 !important;
-        }
-        p, h1, h2, h3, label, .stMarkdown, .stCaption {
-            color: #fafafa !important;
-        }
+        ::-webkit-scrollbar { background-color: #1a1c23; }
+        ::-webkit-scrollbar-thumb { background-color: #2d3250; border-radius: 4px; }
         </style>
         """
     else:
@@ -67,7 +158,9 @@ def inject_theme():
         html, body,
         [data-testid="stAppViewContainer"],
         [data-testid="stApp"],
-        [data-testid="block-container"] {
+        [data-testid="block-container"],
+        [data-testid="stMainBlockContainer"],
+        .main, .block-container {
             background-color: #ffffff !important;
             color: #1a1a2e !important;
         }
@@ -133,10 +226,17 @@ with st.sidebar:
 
     st.divider()
 
-    # Action buttons (future placeholders)
+    # Action buttons
     st.markdown("**Actions**")
-    if st.button("📝 File a complaint", use_container_width=True):
-        st.info("This module is coming soon. It will allow you to generate and file an AI-assisted complaint.")
+    if st.session_state.get("mode") == "plainte":
+        if st.button("💬 Retour à la consultation", use_container_width=True):
+            st.session_state.plainte_result = None
+            st.session_state.mode = "chat"
+            st.rerun()
+    else:
+        if st.button("📝 Rédiger une plainte", use_container_width=True):
+            st.session_state.mode = "plainte"
+            st.rerun()
 
     if st.button("📄 Analyze a document", use_container_width=True):
         st.info("Document analysis (contracts, deeds, decisions) is coming soon.")
@@ -174,86 +274,229 @@ def charger_pipeline(use_reranking: bool = False):
 
 chaine, hybrid, reranker, documents = charger_pipeline(use_reranking=True)
 
-# ── Header ─────────────────────────────────────────────────────────────────────
-
-st.markdown(
-    "<h1 style='text-align:center; font-size:2.8rem; margin-bottom:0'>⚖️ LexAI</h1>"
-    "<p style='text-align:center; color:gray; font-size:1rem; margin-top:4px'>"
-    "The law, accessible to everyone</p>",
-    unsafe_allow_html=True,
-)
-st.divider()
-
-# ── Conversation history ───────────────────────────────────────────────────────
+# ── Session state ──────────────────────────────────────────────────────────────
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "mode" not in st.session_state:
+    st.session_state.mode = "chat"
+if "plainte_result" not in st.session_state:
+    st.session_state.plainte_result = None
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-        if msg["role"] == "assistant" and "sources" in msg:
-            with st.expander("📋 Source articles"):
-                for src in msg["sources"]:
+# ── Mode : Consultation ────────────────────────────────────────────────────────
+
+if st.session_state.mode == "chat":
+
+    st.markdown(
+        "<h1 style='text-align:center; font-size:2.8rem; margin-bottom:0'>⚖️ LexAI</h1>"
+        "<p style='text-align:center; color:gray; font-size:1rem; margin-top:4px'>"
+        "The law, accessible to everyone</p>",
+        unsafe_allow_html=True,
+    )
+    st.divider()
+
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            if msg["role"] == "assistant" and "sources" in msg:
+                with st.expander("📋 Source articles"):
+                    for src in msg["sources"]:
+                        st.markdown(
+                            f"**{src['code']}** — {src['article']}  \n"
+                            f"*{src['domaine']}*"
+                        )
+
+    col_input, col_attach = st.columns([11, 1])
+    with col_attach:
+        if st.button("📎", help="Attach a document (contract, deed, decision) — coming soon"):
+            st.toast("Document attachment will be available soon.", icon="📎")
+
+    question = st.chat_input("Ask your legal question...")
+
+    if question:
+        st.session_state.messages.append({"role": "user", "content": question})
+        with st.chat_message("user"):
+            st.markdown(question)
+
+        with st.chat_message("assistant"):
+            sources = hybrid.invoke(question, code_filtre=code_filtre)
+
+            placeholder = st.empty()
+            reponse_complete = ""
+
+            with st.spinner("Searching..."):
+                for chunk in chaine.stream({"question": question, "langue": langue_code, "code_filtre": code_filtre}):
+                    reponse_complete += chunk
+                    placeholder.markdown(reponse_complete + "▌")
+
+            placeholder.markdown(reponse_complete)
+
+            sources_uniques = []
+            vus = set()
+            for doc in sources:
+                cle = doc.metadata["article"]
+                if cle not in vus:
+                    sources_uniques.append(doc)
+                    vus.add(cle)
+
+            with st.expander(f"📋 {len(sources_uniques)} source article(s) used"):
+                for doc in sources_uniques:
+                    snippet = doc.page_content[:350] + "..."
+                    if langue_code == "en":
+                        snippet = traduire_snippet(snippet)
                     st.markdown(
-                        f"**{src['code']}** — {src['article']}  \n"
-                        f"*{src['domaine']}*"
+                        f"**{doc.metadata['code']}** — {doc.metadata['article']}  \n"
+                        f"*{doc.metadata['domaine']}*  \n"
+                        f"[View on Légifrance]({doc.metadata.get('url', '#')})"
                     )
+                    st.caption(snippet)
+                    st.divider()
 
-# ── Input & generation ─────────────────────────────────────────────────────────
+        sources_meta = [
+            {"code": d.metadata["code"], "article": d.metadata["article"], "domaine": d.metadata["domaine"]}
+            for d in sources_uniques
+        ]
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": reponse_complete,
+            "sources": sources_meta,
+        })
 
-col_input, col_attach = st.columns([11, 1])
-with col_attach:
-    if st.button("📎", help="Attach a document (contract, deed, decision) — coming soon"):
-        st.toast("Document attachment will be available soon.", icon="📎")
 
-question = st.chat_input("Ask your legal question...")
+# ── Mode : Rédaction de plainte ────────────────────────────────────────────────
 
-if question:
-    st.session_state.messages.append({"role": "user", "content": question})
-    with st.chat_message("user"):
-        st.markdown(question)
+elif st.session_state.mode == "plainte":
 
-    with st.chat_message("assistant"):
-        sources = hybrid.invoke(question, code_filtre=code_filtre)
+    # En-tête du mode plainte avec bouton retour
+    col_back, col_title = st.columns([1, 5])
+    with col_back:
+        if st.button("← Retour", use_container_width=True):
+            st.session_state.plainte_result = None
+            st.session_state.mode = "chat"
+            st.rerun()
+    with col_title:
+        st.markdown(
+            "<h1 style='font-size:2rem; margin:0'>📝 Rédiger une plainte</h1>"
+            "<p style='color:gray; font-size:0.9rem; margin-top:2px'>"
+            "Décrivez votre situation — LexAI trouve les articles applicables et rédige le document officiel.</p>",
+            unsafe_allow_html=True,
+        )
+    st.divider()
 
-        placeholder = st.empty()
-        reponse_complete = ""
+    with st.form("intake_plainte"):
+        col1, col2 = st.columns(2)
 
-        with st.spinner("Searching..."):
-            for chunk in chaine.stream({"question": question, "langue": langue_code, "code_filtre": code_filtre}):
-                reponse_complete += chunk
-                placeholder.markdown(reponse_complete + "▌")
+        with col1:
+            type_litige = st.selectbox(
+                "Type de litige *",
+                list(TYPE_LITIGE_CONFIG.keys()),
+                help="Sélectionnez le domaine juridique correspondant à votre situation.",
+            )
+            partie_adverse = st.text_input(
+                "Partie adverse *",
+                placeholder="Ex : Mon employeur SAS Dupont SARL — ou : M. Martin Jean-Pierre",
+            )
+            date_faits = st.text_input(
+                "Date des faits *",
+                placeholder="Ex : 15 mars 2026 — ou : entre janvier et mars 2026",
+            )
 
-        placeholder.markdown(reponse_complete)
+        with col2:
+            prejudice = st.text_area(
+                "Préjudice subi *",
+                placeholder="Ex : Perte de salaire de 3 mois (4 500€), préjudice moral, atteinte à la réputation...",
+                height=122,
+            )
+            demarches = st.text_area(
+                "Démarches déjà effectuées (optionnel)",
+                placeholder="Ex : Mise en demeure envoyée le 01/04/2026, sans réponse. Tentative de médiation refusée.",
+                height=122,
+            )
 
-        sources_uniques = []
-        vus = set()
-        for doc in sources:
+        faits = st.text_area(
+            "Description détaillée des faits *",
+            placeholder="Décrivez chronologiquement ce qui s'est passé. Plus vous êtes précis, plus la plainte sera solide juridiquement...",
+            height=160,
+        )
+
+        submitted = st.form_submit_button(
+            "⚖️ Générer la plainte",
+            use_container_width=True,
+            type="primary",
+        )
+
+    if submitted:
+        if not all([type_litige, partie_adverse, date_faits, faits, prejudice]):
+            st.error("Veuillez remplir tous les champs obligatoires (*).")
+        else:
+            intake = {
+                "type_litige": type_litige,
+                "partie_adverse": partie_adverse,
+                "date_faits": date_faits,
+                "faits": faits,
+                "prejudice": prejudice,
+                "demarches": demarches,
+            }
+            with st.spinner("🔍 Recherche des articles applicables (RAG hybride + fine-tuned embeddings)..."):
+                plainte_text, plainte_docs = generer_plainte(hybrid, reranker, intake)
+            st.session_state.plainte_result = {
+                "text": plainte_text,
+                "sources": plainte_docs,
+                "type_litige": type_litige,
+            }
+
+    if st.session_state.plainte_result:
+        result = st.session_state.plainte_result
+
+        st.divider()
+
+        # --- Document généré ---
+        st.markdown("### 📄 Plainte générée")
+        with st.container(border=True):
+            st.markdown(result["text"])
+
+        st.download_button(
+            label="⬇️ Télécharger la plainte (.txt)",
+            data=result["text"],
+            file_name="plainte_lexai.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+
+        # --- Articles de loi utilisés (RAG) ---
+        plainte_sources_uniques = []
+        vus_plainte = set()
+        for doc in result["sources"]:
             cle = doc.metadata["article"]
-            if cle not in vus:
-                sources_uniques.append(doc)
-                vus.add(cle)
+            if cle not in vus_plainte:
+                plainte_sources_uniques.append(doc)
+                vus_plainte.add(cle)
 
-        with st.expander(f"📋 {len(sources_uniques)} source article(s) used"):
-            for doc in sources_uniques:
-                snippet = doc.page_content[:350] + "..."
-                if langue_code == "en":
-                    snippet = traduire_snippet(snippet)
+        with st.expander(f"📋 {len(plainte_sources_uniques)} article(s) de loi utilisés (corpus Légifrance)"):
+            for doc in plainte_sources_uniques:
                 st.markdown(
                     f"**{doc.metadata['code']}** — {doc.metadata['article']}  \n"
                     f"*{doc.metadata['domaine']}*  \n"
-                    f"[View on Légifrance]({doc.metadata.get('url', '#')})"
+                    f"[Voir sur Légifrance]({doc.metadata.get('url', '#')})"
                 )
-                st.caption(snippet)
+                st.caption(doc.page_content[:300] + "...")
                 st.divider()
 
-    sources_meta = [
-        {"code": d.metadata["code"], "article": d.metadata["article"], "domaine": d.metadata["domaine"]}
-        for d in sources_uniques
-    ]
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": reponse_complete,
-        "sources": sources_meta,
-    })
+        # --- Que faire maintenant ? ---
+        config_litige = TYPE_LITIGE_CONFIG.get(result["type_litige"], {})
+        etapes = config_litige.get("etapes", [])
+
+        if etapes:
+            st.divider()
+            st.markdown(
+                f"### {config_litige.get('icone', '📌')} Que faire avec cette plainte ?"
+            )
+            st.markdown(f"*Procédure pour un litige **{result['type_litige']}***")
+            for etape in etapes:
+                st.markdown(f"- {etape}")
+
+        st.info(
+            "⚠️ Cette plainte est une aide à la rédaction générée par IA à partir du corpus Légifrance. "
+            "Elle ne remplace pas les conseils d'un avocat. "
+            "Pour les litiges complexes ou les enjeux importants, consultez un professionnel du droit."
+        )

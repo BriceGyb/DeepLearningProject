@@ -393,6 +393,185 @@ def creer_chaine_rag(vectorstore: FAISS, documents: list[Document],
     return chaine, hybrid, reranker, hyde
 
 
+# ── MODULE — Rédaction de Plainte ────────────────────────────────────────────
+
+TYPE_LITIGE_CONFIG = {
+    "Pénal": {
+        "destinataire": "Monsieur le Procureur de la République\nprès le Tribunal Judiciaire de [VOTRE VILLE]",
+        "destinataire_court": "Monsieur le Procureur de la République",
+        "etapes": [
+            "**Option 1 — Dépôt physique** : Rendez-vous dans n'importe quel commissariat ou gendarmerie (ils sont tenus de prendre votre plainte).",
+            "**Option 2 — Pré-plainte en ligne** : Déposez d'abord sur [pre-plainte.interieur.gouv.fr](https://www.pre-plainte.fr) puis confirmez en personne.",
+            "**Option 3 — Courrier recommandé** : Envoyez directement au Procureur de la République du tribunal de votre lieu de résidence.",
+            "**Délais de prescription** : 1 an (contraventions) · 6 ans (délits) · 20 ans (crimes).",
+        ],
+        "code_filtre": "Code Pénal",
+        "icone": "🚔",
+    },
+    "Civil / Contractuel": {
+        "destinataire": "Monsieur le Président\ndu Tribunal Judiciaire de [VOTRE VILLE]",
+        "destinataire_court": "Monsieur le Président",
+        "etapes": [
+            "**1. Mise en demeure préalable** : Envoyez d'abord une lettre recommandée AR à la partie adverse (obligatoire avant toute saisine judiciaire).",
+            "**2a. Montant ≤ 5 000€** : Saisine simplifiée par formulaire Cerfa n°11764 auprès du tribunal judiciaire.",
+            "**2b. Montant > 5 000€** : Assignation en justice via un huissier de justice.",
+            "**Médiation** : Tentative de résolution amiable souvent exigée avant le juge — renseignez-vous auprès du tribunal.",
+        ],
+        "code_filtre": "Code Civil",
+        "icone": "⚖️",
+    },
+    "Travail": {
+        "destinataire": "Monsieur le Président\ndu Conseil de Prud'hommes de [VOTRE VILLE]",
+        "destinataire_court": "Monsieur le Président du Conseil de Prud'hommes",
+        "etapes": [
+            "**1. Saisine en ligne** : Formulaire disponible sur [justice.fr](https://www.justice.fr) → section Prud'hommes.",
+            "**2. Audience de conciliation** : La procédure commence toujours par une tentative de conciliation obligatoire.",
+            "**3. Délais impératifs** : 1 an pour contester un licenciement · 3 ans pour salaires impayés · 5 ans pour harcèlement/discrimination.",
+            "**Assistance** : Vous pouvez être accompagné d'un délégué syndical ou d'un avocat lors des audiences.",
+        ],
+        "code_filtre": "Code du Travail",
+        "icone": "👷",
+    },
+    "Consommation": {
+        "destinataire": "[Nom et adresse de l'entreprise concernée]",
+        "destinataire_court": "le responsable du service client",
+        "etapes": [
+            "**1. Lettre recommandée AR** : Envoyez cette plainte à l'entreprise en recommandé avec accusé de réception (premier recours obligatoire).",
+            "**2. Médiation** : Sans réponse sous 60 jours → saisissez le médiateur sectoriel sur [mediation-conso.fr](https://www.mediation-conso.fr).",
+            "**3. Signalement DGCCRF** : Alertez les autorités de consommation via [signal.conso.gouv.fr](https://signal.conso.gouv.fr).",
+            "**4. Justice** : En dernier recours, tribunal judiciaire ou juge de proximité pour les montants < 5 000€.",
+        ],
+        "code_filtre": "Code de la Consommation",
+        "icone": "🛒",
+    },
+    "Commerce / Affaires": {
+        "destinataire": "Monsieur le Président\ndu Tribunal de Commerce de [VOTRE VILLE]",
+        "destinataire_court": "Monsieur le Président du Tribunal de Commerce",
+        "etapes": [
+            "**1. Mise en demeure** : Lettre recommandée AR à la partie adverse avant toute action judiciaire.",
+            "**2. Injonction de payer** : Pour créances non contestées, formulaire Cerfa sur justice.fr (procédure rapide et peu coûteuse).",
+            "**3. Assignation** : Pour litiges complexes, via huissier de justice devant le tribunal de commerce.",
+            "**Médiation commerciale** : Proposée par la plupart des tribunaux de commerce avant l'audience de jugement.",
+        ],
+        "code_filtre": "Code de Commerce",
+        "icone": "💼",
+    },
+}
+
+PROMPT_PLAINTE = PromptTemplate(
+    input_variables=[
+        "type_litige", "partie_adverse", "date_faits", "faits",
+        "prejudice", "demarches", "destinataire", "context",
+    ],
+    template="""Tu es LexAI, un assistant juridique expert en droit français. Rédige une plainte officielle formelle et juridiquement fondée.
+
+=== ARTICLES DE LOI APPLICABLES (extraits du corpus Légifrance par recherche RAG) ===
+{context}
+
+=== FAITS RAPPORTÉS ===
+Type de litige         : {type_litige}
+Partie adverse         : {partie_adverse}
+Date des faits         : {date_faits}
+Description des faits  : {faits}
+Préjudice subi         : {prejudice}
+Démarches antérieures  : {demarches}
+
+=== STRUCTURE OBLIGATOIRE ===
+
+{destinataire}
+
+OBJET : Plainte pour [qualifie en 1 ligne le litige juridiquement — ex : "licenciement abusif" ou "escroquerie" ou "vice caché"]
+
+Madame, Monsieur,
+
+Je soussigné(e) [VOTRE NOM COMPLET], demeurant [VOTRE ADRESSE COMPLÈTE], ai l'honneur de porter à votre connaissance les faits suivants :
+
+**I. EXPOSÉ DES FAITS**
+[Rédige un exposé chronologique, factuel et neutre. Utilise les dates, noms et éléments fournis. Style officiel, impersonnel, sans jugement.]
+
+**II. FONDEMENT JURIDIQUE**
+[Pour chaque article pertinent présent dans le contexte RAG fourni :
+→ "Aux termes de l'article [numéro] du [Code] : '[citation exacte du texte]'"
+→ Explique brièvement en quoi cet article s'applique aux faits décrits.
+RÈGLE ABSOLUE : ne cite JAMAIS un article absent du contexte RAG. Si aucun article ne correspond parfaitement, indique-le clairement.]
+
+**III. PRÉJUDICE SUBI**
+[Décrit précisément le préjudice : matériel (chiffré si possible), moral, professionnel, physique.]
+
+**IV. DEMANDES**
+[Formule les demandes concrètes et spécifiques au type de litige : engager des poursuites / condamner à indemniser de [montant] / ordonner la réintégration / etc.]
+
+Dans l'attente de votre réponse, je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations respectueuses.
+
+Fait à [VOTRE VILLE], le [DATE DU JOUR]
+
+[VOTRE NOM COMPLET]
+[VOTRE SIGNATURE]
+
+---
+⚠️ Note : Les zones entre [CROCHETS] sont à compléter avec vos informations personnelles avant envoi.
+""",
+)
+
+
+def generer_plainte(hybrid: "HybridRetriever", reranker, intake: dict) -> tuple:
+    """
+    Génère une plainte officielle à partir des faits.
+
+    intake: dict — clés: type_litige, partie_adverse, date_faits,
+                         faits, prejudice, demarches (optionnel)
+    Retourne: (plainte_text: str, sources: list[Document])
+    """
+    config = TYPE_LITIGE_CONFIG.get(intake["type_litige"], {})
+    code_filtre = config.get("code_filtre")
+
+    # Requête RAG construite à partir du type de litige + faits
+    query = f"litige {intake['type_litige']} : {intake['faits'][:400]}"
+
+    # HyDE — génère un article hypothétique dans le style Légifrance
+    # pour améliorer le recall FAISS du modèle fine-tuné
+    hyde = HyDEGenerator()
+    hyde_doc = hyde.generer(
+        f"Quels articles de loi s'appliquent à ce litige de type {intake['type_litige']} : "
+        f"{intake['faits'][:300]}"
+    )
+
+    # Retrieval hybrid BM25 + FAISS (embeddings fine-tunés) avec HyDE
+    fetch_k = TOP_K * 2
+    docs = hybrid.invoke(
+        query,
+        code_filtre=code_filtre,
+        top_k=fetch_k,
+        query_vectorielle=hyde_doc,
+    )
+
+    # Cross-Encoder reranking — garde les 5 meilleurs (top_k + 2 pour la plainte)
+    if reranker:
+        docs = reranker.rerank(query, docs, top_k=RERANKER_TOP_K + 2)
+
+    context = "\n\n---\n\n".join(doc.page_content for doc in docs)
+
+    llm = ChatOpenAI(
+        model=LLM_MODEL,
+        temperature=0.1,
+        api_key=os.getenv("OPENAI_API_KEY"),
+    )
+
+    prompt_text = PROMPT_PLAINTE.format(
+        type_litige=intake["type_litige"],
+        partie_adverse=intake["partie_adverse"],
+        date_faits=intake["date_faits"],
+        faits=intake["faits"],
+        prejudice=intake["prejudice"],
+        demarches=intake.get("demarches") or "Aucune démarche préalable effectuée.",
+        destinataire=config.get("destinataire", "Monsieur le Président du Tribunal"),
+        context=context,
+    )
+
+    reponse = llm.invoke(prompt_text)
+    return reponse.content, docs
+
+
 # ── Interface CLI ──────────────────────────────────────────────────────────────
 
 def afficher_reponse(reponse: str, sources: list[Document]):
