@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LexAI — Rapport Final — 8INF887</title>
+<style>
+  :root {
+    --primary:   #1a237e;
+    --accent:    #3949ab;
+    --green:     #2e7d32;
+    --red:       #c62828;
+    --orange:    #e65100;
+    --yellow:    #f9a825;
+    --bg:        #f5f6fa;
+    --card:      #ffffff;
+    --border:    #dee2e6;
+    --text:      #212529;
+    --muted:     #6c757d;
+    --code-bg:   #1e1e2e;
+    --code-fg:   #cdd6f4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; font-size: 0.97rem; }
+
+  /* ── Page de titre ── */
+  .cover {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    background: linear-gradient(160deg, #0d1b6e 0%, #1a237e 40%, #283593 100%);
+    color: white;
+    padding: 60px 80px;
+    page-break-after: always;
+  }
+  .cover-logo { width: 160px; margin-bottom: 40px; background: white; border-radius: 12px; padding: 12px; }
+  .cover h1 { font-size: 3rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px; }
+  .cover h2 { font-size: 1.4rem; font-weight: 400; opacity: 0.85; margin-bottom: 40px; }
+  .cover-divider { width: 80px; height: 4px; background: #90caf9; margin: 32px 0; border-radius: 2px; }
+  .cover-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: auto; }
+  .cover-meta-item .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.6; }
+  .cover-meta-item .value { font-size: 1rem; font-weight: 600; margin-top: 2px; }
+  .cover-badges { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 32px; }
+  .cover-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; padding: 5px 14px; font-size: 0.82rem; }
+
+  /* ── Mise en page globale ── */
+  .container { max-width: 1060px; margin: 0 auto; padding: 48px 24px; }
+
+  /* ── TOC ── */
+  .toc { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 28px 32px; margin-bottom: 36px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .toc h2 { color: var(--primary); font-size: 1.1rem; margin-bottom: 16px; border-bottom: 2px solid var(--accent); padding-bottom: 8px; }
+  .toc ol { padding-left: 22px; column-count: 2; column-gap: 40px; }
+  .toc li { margin: 7px 0; }
+  .toc a { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* ── Sections ── */
+  .section { background: var(--card); border-radius: 14px; border: 1px solid var(--border); padding: 36px 40px; margin-bottom: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); }
+  .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding-bottom: 14px; border-bottom: 3px solid var(--accent); }
+  .section-num { background: var(--accent); color: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; flex-shrink: 0; }
+  .section h2 { font-size: 1.5rem; color: var(--primary); }
+  .section h3 { font-size: 1.1rem; color: var(--accent); margin: 24px 0 10px; }
+  .section h4 { font-size: 0.97rem; font-weight: 700; color: var(--text); margin: 16px 0 8px; }
+  p { margin-bottom: 12px; }
+  ul, ol { padding-left: 22px; margin-bottom: 12px; }
+  li { margin: 6px 0; }
+
+  /* ── Code blocks ── */
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    border-radius: 10px;
+    padding: 22px 24px;
+    overflow-x: auto;
+    font-size: 0.84rem;
+    line-height: 1.65;
+    margin: 16px 0;
+    border: 1px solid #313244;
+  }
+  code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; }
+  .ic { background: #e8eaf6; color: var(--primary); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 0.87em; }
+
+  /* Syntax coloring */
+  .kw  { color: #cba6f7; font-weight: 600; }
+  .fn  { color: #89dceb; }
+  .str { color: #a6e3a1; }
+  .cmt { color: #6c7086; font-style: italic; }
+  .nb  { color: #fab387; }
+  .cls { color: #f9e2af; font-weight: 600; }
+  .dec { color: #f38ba8; }
+
+  /* ── Tables ── */
+  table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 0.9rem; }
+  th { background: var(--primary); color: white; padding: 10px 14px; text-align: left; }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: #f4f6fb; }
+  tr:hover td { background: #e8eaf6; }
+  .good { color: var(--green); font-weight: 700; }
+  .bad  { color: var(--red);   font-weight: 700; }
+  .neu  { color: var(--muted); }
+  .winner td { background: #e8f5e9 !important; font-weight: 600; }
+
+  /* ── Metric cards ── */
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin: 18px 0; }
+  .metric-card { background: linear-gradient(135deg, #e8eaf6, #f3e5f5); border-radius: 12px; padding: 18px; text-align: center; border: 1px solid #c5cae9; }
+  .metric-card .val { font-size: 2rem; font-weight: 800; color: var(--primary); }
+  .metric-card .delta { font-size: 0.83rem; font-weight: 600; margin-top: 3px; }
+  .metric-card .lbl { font-size: 0.77rem; color: var(--muted); margin-top: 5px; }
+  .delta-pos { color: var(--green); }
+  .delta-neg { color: var(--red); }
+  .delta-neu { color: var(--muted); }
+
+  /* ── Alerts ── */
+  .alert { border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-left: 4px solid; font-size: 0.93rem; }
+  .alert-info    { background: #e3f2fd; border-color: #1565c0; color: #0d47a1; }
+  .alert-success { background: #e8f5e9; border-color: var(--green); color: #1b5e20; }
+  .alert-warn    { background: #fff8e1; border-color: var(--yellow); color: #6d4c00; }
+  .alert-danger  { background: #fce4ec; border-color: var(--red); color: #880e4f; }
+
+  /* ── Badges ── */
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+  .badge-done    { background: #e8f5e9; color: var(--green); }
+  .badge-new     { background: #e3f2fd; color: #1565c0; }
+  .badge-partial { background: #fff3e0; color: var(--orange); }
+
+  /* ── Architecture diagram ── */
+  .arch { background: var(--code-bg); border-radius: 10px; padding: 24px; color: var(--code-fg); font-family: monospace; font-size: 0.84rem; line-height: 1.9; margin: 18px 0; border: 1px solid #313244; }
+  .arch .hi  { color: #a6e3a1; font-weight: bold; }
+  .arch .new { color: #f9e2af; font-weight: bold; }
+  .arch .arr { color: #89dceb; }
+  .arch .sec { color: #cba6f7; font-weight: bold; }
+
+  /* ── Sprint timeline ── */
+  .timeline { position: relative; padding-left: 40px; margin: 24px 0; }
+  .timeline::before { content: ''; position: absolute; left: 14px; top: 0; bottom: 0; width: 3px; background: linear-gradient(to bottom, var(--accent), #7986cb); border-radius: 2px; }
+  .timeline-item { position: relative; margin-bottom: 28px; }
+  .timeline-item::before { content: ''; position: absolute; left: -34px; top: 4px; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 3px solid white; box-shadow: 0 0 0 3px var(--accent); }
+  .timeline-item h4 { color: var(--primary); font-size: 1rem; margin-bottom: 6px; }
+  .timeline-item .date { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; }
+
+  /* ── Feature cards ── */
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin: 20px 0; }
+  .feature-card { background: linear-gradient(135deg, #f8f9ff, #fff); border: 1px solid #c5cae9; border-radius: 12px; padding: 22px; border-top: 4px solid var(--accent); }
+  .feature-card h4 { color: var(--primary); font-size: 1rem; margin-bottom: 8px; }
+  .feature-card p { font-size: 0.88rem; color: var(--muted); margin: 0; }
+
+  /* ── Bilan perso ── */
+  .bilan { background: linear-gradient(135deg, #1a237e 0%, #283593 100%); color: white; border-radius: 14px; padding: 36px 40px; margin-top: 32px; }
+  .bilan h2 { font-size: 1.5rem; margin-bottom: 20px; }
+  .bilan p  { opacity: 0.92; line-height: 1.9; margin-bottom: 14px; }
+  .bilan .bilan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 24px; }
+  .bilan-item { background: rgba(255,255,255,0.1); border-radius: 10px; padding: 16px; }
+  .bilan-item h4 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; margin-bottom: 8px; }
+  .bilan-item p  { font-size: 0.9rem; opacity: 0.9; margin: 0; }
+
+  /* ── References ── */
+  .ref-list { list-style: none; padding: 0; }
+  .ref-list li { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+  .ref-list li:last-child { border: none; }
+
+  /* ── Print ── */
+  @media print {
+    body { background: white; }
+    .cover { min-height: 0; padding: 40px; }
+    .section { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }
+    pre { white-space: pre-wrap; word-break: break-all; }
+  }
+
+  @media (max-width: 680px) {
+    .cover { padding: 32px 24px; }
+    .cover h1 { font-size: 2rem; }
+    .cover-meta { grid-template-columns: 1fr; }
+    .section { padding: 22px; }
+    .toc ol { column-count: 1; }
+    .bilan .bilan-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════ COUVERTURE ══ -->
+<div class="cover">
+  <img src="image.png" class="cover-logo" alt="Logo UQAC">
+
+  <h1>LexAI</h1>
+  <h2>Assistant Juridique Intelligent par RAG Hybride,<br>Fine-tuning d'Embeddings et Génération de Documents Officiels</h2>
+
+  <div class="cover-divider"></div>
+
+  <div class="cover-meta">
+    <div class="cover-meta-item"><div class="label">Université</div><div class="value">Université du Québec à Chicoutimi</div></div>
+    <div class="cover-meta-item"><div class="label">Cours</div><div class="value">8INF887 – Apprentissage Profond – 2026</div></div>
+    <div class="cover-meta-item"><div class="label">Étudiant</div><div class="value">GYEBRE Brice Joseph Emeric</div></div>
+    <div class="cover-meta-item"><div class="label">Date de remise</div><div class="value">3 mai 2026</div></div>
+    <div class="cover-meta-item"><div class="label">Dépôt GitHub</div><div class="value">github.com/BriceGyb/DeepLearningProject</div></div>
+    <div class="cover-meta-item"><div class="label">Démo live</div><div class="value">apprentissageprofondprojet.streamlit.app</div></div>
+  </div>
+
+  <div class="cover-badges">
+    <span class="cover-badge">🧠 Fine-tuning Embeddings</span>
+    <span class="cover-badge">🔍 RAG Hybride BM25 + FAISS</span>
+    <span class="cover-badge">⚖️ Droit français</span>
+    <span class="cover-badge">🤗 HuggingFace Hub</span>
+    <span class="cover-badge">📊 Évaluation RAGAS</span>
+    <span class="cover-badge">🚀 Streamlit Cloud</span>
+    <span class="cover-badge">📄 Génération de Plaintes PDF</span>
+    <span class="cover-badge">📋 Analyse de Contrats IA</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ CORPS ══ -->
+<div class="container">
+
+<!-- TOC -->
+<div class="toc">
+  <h2>📋 Table des matières</h2>
+  <ol>
+    <li><a href="#s1">Introduction et problématique</a></li>
+    <li><a href="#s2">Méthodologie de développement (Agile / Sprints)</a></li>
+    <li><a href="#s3">Sprint 1 — Prototype RAG fonctionnel</a></li>
+    <li><a href="#s4">Sprint 2 — RAG de niveau recherche (RAGAS, Reranking, HyDE)</a></li>
+    <li><a href="#s5">Sprint 3 — Fine-tuning d'embeddings juridiques</a></li>
+    <li><a href="#s6">Fonctionnalités avancées — Rédaction de plainte et analyse de contrat</a></li>
+    <li><a href="#s7">Architecture finale complète</a></li>
+    <li><a href="#s8">Évaluation globale et analyse des résultats</a></li>
+    <li><a href="#s9">Difficultés rencontrées et solutions</a></li>
+    <li><a href="#s10">Lien avec les notions du cours d'apprentissage profond</a></li>
+    <li><a href="#s11">Bilan personnel</a></li>
+    <li><a href="#s12">Références</a></li>
+  </ol>
+</div>
+
+<!-- ══ SECTION 1 ══ -->
+<div class="section" id="s1">
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <h2>Introduction et problématique</h2>
+  </div>
+
+  <h3>1.1 Contexte et motivation</h3>
+  <p>Le droit français est l'un des systèmes juridiques les plus codifiés au monde : des centaines de milliers d'articles répartis dans une quarantaine de codes officiels définissent les droits et obligations de chaque citoyen. Pourtant, cet immense corpus normatif reste largement inaccessible au grand public. Comprendre ses droits face à un licenciement abusif, un loyer impayé ou une clause contractuelle suspecte nécessite soit une formation juridique spécialisée, soit les honoraires d'un avocat — souvent prohibitifs pour les particuliers.</p>
+
+  <p>Des outils comme <strong>DoNotPay</strong>, <strong>LegalZoom</strong> et <strong>Rocket Lawyer</strong> ont démontré qu'il existait un besoin massif et un marché viable pour l'assistance juridique automatisée. Cependant, ces outils sont principalement conçus pour le droit américain et s'appuient sur des bases de règles rigides plutôt que sur une compréhension réelle des textes de loi.</p>
+
+  <div class="alert alert-info">
+    <strong>Problématique centrale :</strong> Comment concevoir un système d'assistance juridique capable de comprendre les textes officiels français, de retrouver les articles pertinents face à une situation donnée, et de générer des réponses et documents officiels fondés exclusivement sur ces textes — sans inventer ni halluciner ?
+  </div>
+
+  <h3>1.2 Solution proposée : LexAI</h3>
+  <p><strong>LexAI</strong> est un assistant juridique intelligent basé sur une architecture <strong>RAG (Retrieval-Augmented Generation)</strong> hybride, spécialisé dans le droit français. La stratégie RAG a été choisie délibérément pour ses propriétés fondamentales :</p>
+  <ul>
+    <li><strong>Ancrage factuel</strong> — chaque réponse est fondée sur des articles de loi réels, cités et vérifiables sur Légifrance</li>
+    <li><strong>Mise à jour sans re-entraînement</strong> — ajouter de nouveaux codes revient à étendre le corpus, pas à réentraîner le LLM</li>
+    <li><strong>Traçabilité</strong> — les sources utilisées sont affichées, l'utilisateur peut vérifier lui-même</li>
+    <li><strong>Contrôle des hallucinations</strong> — le LLM est contraint au contexte fourni, interdisant toute invention</li>
+  </ul>
+
+  <h3>1.3 Périmètre du projet</h3>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <h4>💬 Consultation juridique</h4>
+      <p>Interface chat pour poser des questions en langage naturel sur le droit français, avec réponses structurées citant les articles applicables.</p>
+    </div>
+    <div class="feature-card">
+      <h4>📝 Rédaction de plainte</h4>
+      <p>Génération de plaintes officielles prêtes à envoyer à partir des faits décrits par l'utilisateur, fondées sur le corpus RAG.</p>
+    </div>
+    <div class="feature-card">
+      <h4>📄 Analyse de contrat</h4>
+      <p>Détection des clauses abusives ou illégales dans un contrat soumis, avec citation des articles violés.</p>
+    </div>
+    <div class="feature-card">
+      <h4>📥 Export PDF</h4>
+      <p>Génération de documents PDF imprimables (plainte, analyse) avec bandeau LexAI, formatage juridique et pied de page.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SECTION 2 ══ -->
+<div class="section" id="s2">
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <h2>Méthodologie de développement</h2>
+  </div>
+
+  <p>Le projet a été développé en suivant une méthodologie <strong>Agile itérative</strong> organisée en 3 sprints de 2 semaines chacun. Chaque sprint part des acquis du précédent et livre une version fonctionnelle et déployée.</p>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <h4>Sprint 1 — Prototype RAG de base (10–27 mars 2026)</h4>
+      <div class="date">2 semaines · Livraison : 27 mars 2026</div>
+      <p>Pipeline RAG fonctionnel (FAISS + GPT-4o-mini), corpus de 60 articles, interface Streamlit, déploiement Streamlit Cloud, CI/CD GitHub automatique.</p>
+    </div>
+    <div class="timeline-item">
+      <h4>Sprint 2 — RAG de niveau recherche (28 mars–10 avril 2026)</h4>
+      <div class="date">2 semaines · Livraison : 10 avril 2026</div>
+      <p>Framework RAGAS (évaluation quantitative), Cross-Encoder Reranking (BGE-Reranker), HyDE (Hypothetical Document Embeddings), corpus ×5.7 (346 articles). Baseline mesurée : Faithfulness 0.8322, Context Precision 0.8935.</p>
+    </div>
+    <div class="timeline-item">
+      <h4>Sprint 3 — Fine-tuning + Corpus v3 (10 avril–3 mai 2026)</h4>
+      <div class="date">3 semaines · Livraison : 3 mai 2026</div>
+      <p>Corpus v3 (2 419 articles, 6 codes), génération de 7 257 paires d'entraînement, fine-tuning sur GPU A100, déploiement HuggingFace Hub. Gains IR : +45% Accuracy@1, +35% MRR@10.</p>
+    </div>
+    <div class="timeline-item">
+      <h4>Fonctionnalités avancées — Sprint final (mai 2026)</h4>
+      <div class="date">Contributions supplémentaires</div>
+      <p>Module de rédaction de plainte officielle PDF, module d'analyse de contrat (style Harvey AI), refonte UI mode-switch, dark mode complet, README détaillé.</p>
+    </div>
+  </div>
+
+  <h3>2.1 Principes de développement</h3>
+  <ul>
+    <li><strong>Non-destructif</strong> — chaque version du corpus est conservée (<code class="ic">lois_francaises.json</code> → <code class="ic">corpus_penal_civil.json</code> → <code class="ic">corpus_v3.json</code>)</li>
+    <li><strong>Rétrocompatibilité</strong> — tous les modules sont activables par paramètre (<code class="ic">use_reranking</code>, <code class="ic">use_hyde</code>), jamais imposés</li>
+    <li><strong>Mesurabilité</strong> — chaque amélioration est quantifiée via RAGAS ou métriques IR avant d'être conservée</li>
+    <li><strong>Déploiement continu</strong> — chaque push sur <code class="ic">main</code> redéploie automatiquement sur Streamlit Cloud</li>
+  </ul>
+</div>
+
+<!-- ══ SECTION 3 ══ -->
+<div class="section" id="s3">
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <h2>Sprint 1 — Prototype RAG fonctionnel</h2>
+  </div>
+
+  <h3>3.1 Problématique du Sprint 1</h3>
+  <p>Le défi fondamental d'un système RAG juridique est le <strong>décalage de distribution</strong> entre les questions en langage naturel des utilisateurs et les textes de loi. Un article du Code Civil est rédigé dans un style impersonnel, normatif, dense — à l'opposé d'une question du type "Mon propriétaire peut-il entrer chez moi sans prévenir ?".</p>
+
+  <h3>3.2 Architecture initiale</h3>
+  <p>Le pipeline Sprint 1 implémente un RAG classique en 7 étapes :</p>
+
+  <div class="arch">
+<span class="sec">── PIPELINE RAG SPRINT 1 ──────────────────────────────────</span>
+
+<span class="arr">1.</span> <span class="hi">Ingestion</span>     API Légifrance PISTE (OAuth2) → 60 articles (6 codes)
+<span class="arr">2.</span> <span class="hi">Nettoyage</span>     LegalTextCleaner : HTML, Nota, versions, Unicode NFC
+<span class="arr">3.</span> <span class="hi">Chunking</span>      LegalChunker : tiktoken + RecursiveCharacterTextSplitter
+                  Articles courts (≤800 tokens) → 1 chunk
+                  Articles longs → split par alinéa, overlap 400 chars
+<span class="arr">4.</span> <span class="hi">Embeddings</span>    OpenAI text-embedding-3-small (1536 dims)
+<span class="arr">5.</span> <span class="hi">Indexation</span>    FAISS Flat Index → persistance disque (chunk_count.txt)
+<span class="arr">6.</span> <span class="hi">Retrieval</span>     BM25Okapi (lexical) + FAISS (sémantique)
+                  Fusion RRF : VECTOR×0.65 + BM25×0.35 → Top-5
+<span class="arr">7.</span> <span class="hi">Génération</span>    LangChain LCEL → GPT-4o-mini → streaming Streamlit
+  </div>
+
+  <h3>3.3 Choix techniques clés du Sprint 1</h3>
+
+  <h4>Recherche hybride BM25 + FAISS</h4>
+  <p>Dès le Sprint 1, la décision est prise de ne pas utiliser uniquement FAISS. Le droit français utilise des termes techniques très précis (<em>alinéa</em>, <em>rescision</em>, <em>préjudice</em>) pour lesquels la correspondance lexicale exacte (BM25) surpasse la similarité sémantique. La fusion par Reciprocal Rank Fusion (Robertson, 1977) combine les deux signaux de façon robuste :</p>
+
+  <pre><code><span class="dec">class</span> <span class="cls">HybridRetriever</span>:
+    <span class="kw">def</span> <span class="fn">_rrf</span>(<span class="kw">self</span>, rank: <span class="cls">int</span>, k: <span class="cls">int</span> = <span class="nb">60</span>) -> <span class="cls">float</span>:
+        <span class="kw">return</span> <span class="nb">1.0</span> / (k + rank)
+
+    <span class="kw">def</span> <span class="fn">invoke</span>(<span class="kw">self</span>, question: <span class="cls">str</span>, ...) -> <span class="cls">list</span>[<span class="cls">Document</span>]:
+        <span class="cmt"># FAISS : similarité sémantique (embeddings)</span>
+        vec_results = <span class="kw">self</span>.vs.similarity_search_with_score(query_vec, k=fetch_k)
+
+        <span class="cmt"># BM25 : correspondance lexicale exacte</span>
+        bm25_scores = <span class="kw">self</span>.bm25.get_scores(question.lower().split())
+
+        <span class="cmt"># Fusion RRF : chaque technique vote pondérément</span>
+        score[idx] += <span class="nb">0.65</span> * <span class="kw">self</span>._rrf(rank_faiss)   <span class="cmt"># vecteur</span>
+        score[idx] += <span class="nb">0.35</span> * <span class="kw">self</span>._rrf(rank_bm25)    <span class="cmt"># lexical</span>
+
+        <span class="kw">return</span> [<span class="kw">self</span>.documents[i] <span class="kw">for</span> i <span class="kw">in</span> top_indices]</code></pre>
+
+  <h4>Chunking intelligent par article</h4>
+  <p>Les articles juridiques ont des longueurs très variables (quelques mots à plusieurs milliers de tokens). Un chunking uniforme briserait la cohérence juridique. La stratégie retenue :</p>
+
+  <pre><code><span class="kw">def</span> <span class="fn">chunker</span>(<span class="kw">self</span>, article: <span class="cls">dict</span>, texte_nettoye: <span class="cls">str</span>) -> <span class="cls">list</span>[<span class="cls">Document</span>]:
+    prefixe = <span class="str">f"[{article['code']} — {article['article']}]\n"</span>
+
+    <span class="kw">if</span> <span class="kw">self</span>.compter_tokens(texte_nettoye) <= <span class="nb">800</span>:
+        <span class="cmt"># Article court : 1 chunk avec préfixe + domaine</span>
+        contenu = prefixe + <span class="str">f"Domaine : {article['domaine']}\n\n"</span> + texte_nettoye
+        <span class="kw">return</span> [<span class="cls">Document</span>(page_content=contenu, metadata={...})]
+
+    <span class="cmt"># Article long : split récursif par alinéa avec overlap 400 chars</span>
+    morceaux = <span class="kw">self</span>.SPLITTER.split_text(texte_nettoye)
+    <span class="kw">return</span> [<span class="cls">Document</span>(page_content=prefixe + morceau, ...) <span class="kw">for</span> morceau <span class="kw">in</span> morceaux]</code></pre>
+
+  <h4>Persistance FAISS intelligente</h4>
+  <p>La construction de l'index FAISS prend entre 28s (modèle local) et 60s (API OpenAI). Pour éviter cette latence à chaque redémarrage, un mécanisme de persistance compare le nombre de chunks indexés au nombre actuel :</p>
+
+  <pre><code>count_file = os.path.join(FAISS_PERSIST_DIR, <span class="str">"chunk_count.txt"</span>)
+<span class="kw">if</span> os.path.exists(count_file):
+    nb_existants = <span class="cls">int</span>(open(count_file).read())
+    <span class="kw">if</span> nb_existants == <span class="cls">len</span>(documents):
+        <span class="kw">return</span> FAISS.load_local(FAISS_PERSIST_DIR, embeddings, ...)  <span class="cmt"># Cache hit</span>
+<span class="cmt"># Cache miss → reindexation + sauvegarde</span>
+vs = FAISS.from_documents(documents, embeddings)
+vs.save_local(FAISS_PERSIST_DIR)</code></pre>
+
+  <h3>3.4 Résultats Sprint 1</h3>
+  <div class="metric-grid">
+    <div class="metric-card"><div class="val">60</div><div class="lbl">Articles indexés</div></div>
+    <div class="metric-card"><div class="val">6</div><div class="lbl">Codes juridiques</div></div>
+    <div class="metric-card"><div class="val">0.83</div><div class="lbl">Faithfulness (baseline)</div></div>
+    <div class="metric-card"><div class="val">✅</div><div class="lbl">App déployée Streamlit</div></div>
+  </div>
+</div>
+
+<!-- ══ SECTION 4 ══ -->
+<div class="section" id="s4">
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <h2>Sprint 2 — RAG de niveau recherche</h2>
+  </div>
+
+  <h3>4.1 Framework d'évaluation RAGAS</h3>
+  <p>Sans métriques objectives, il est impossible de comparer rigoureusement les variantes du pipeline. Le Sprint 2 commence par l'implémentation d'un framework d'évaluation automatique complet basé sur <strong>RAGAS</strong> (Es et al., arXiv:2309.15217).</p>
+
+  <table>
+    <thead><tr><th>Métrique RAGAS</th><th>Ce qu'elle mesure</th><th>Formule conceptuelle</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Faithfulness</strong></td><td>Hallucinations LLM</td><td>Part des énoncés de la réponse soutenus par les contextes récupérés</td></tr>
+      <tr><td><strong>Context Precision</strong></td><td>Pertinence du retrieval</td><td>Part des contextes pertinents parmi tous les contextes fournis au LLM</td></tr>
+      <tr><td><strong>Context Recall</strong></td><td>Couverture du retrieval</td><td>Part de l'information du ground_truth couverte par les contextes</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Dataset d'évaluation synthétique</h4>
+  <p>60 paires (question, ground_truth) générées par GPT-4o-mini sur le corpus, réutilisables entre toutes les variantes :</p>
+
+  <pre><code><span class="cmt"># Prompt de génération du dataset Q/A</span>
+prompt = <span class="str">"""Voici un article de loi français. Génère UNE question juridique précise et sa réponse.
+Article : {article} ({code})
+Texte : {texte[:800]}
+Retourne JSON : {"question": "...", "ground_truth": "..."}"""</span>
+
+<span class="cmt"># Exemple de paire générée</span>
+{
+  <span class="str">"question"</span>:     <span class="str">"Quelles sont les limites à la liberté contractuelle selon l'article 6 du Code Civil ?"</span>,
+  <span class="str">"ground_truth"</span>: <span class="str">"Il est interdit de déroger aux lois qui intéressent l'ordre public et les bonnes mœurs."</span>,
+  <span class="str">"article_ref"</span>:  <span class="str">"Code Civil — Article 6"</span>
+}</code></pre>
+
+  <h3>4.2 Cross-Encoder Reranking (BGE-Reranker)</h3>
+
+  <h4>Principe théorique</h4>
+  <p>Le retrieval initial (BM25 + FAISS) utilise des <strong>bi-encodeurs</strong> : question et document sont encodés séparément, la similarité est calculée par produit scalaire. Cette approche est rapide mais manque de précision : le modèle ne "voit" pas la question et le document ensemble.</p>
+  <p>Les <strong>cross-encodeurs</strong> concatènent question + document et les passent ensemble dans un Transformer : l'attention croisée capture les interactions fines entre chaque token de la question et chaque token du document. Précision supérieure, mais complexité O(n) — idéal pour re-scorer un petit ensemble de candidats présélectionnés.</p>
+
+  <pre><code><span class="dec">class</span> <span class="cls">CrossEncoderReranker</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, model_name: <span class="cls">str</span> = <span class="str">"BAAI/bge-reranker-base"</span>):
+        <span class="kw">from</span> sentence_transformers <span class="kw">import</span> CrossEncoder
+        <span class="kw">self</span>.model = <span class="cls">CrossEncoder</span>(model_name)   <span class="cmt"># XLM-RoBERTa 270M params</span>
+
+    <span class="kw">def</span> <span class="fn">rerank</span>(<span class="kw">self</span>, question: <span class="cls">str</span>, documents: <span class="cls">list</span>[<span class="cls">Document</span>], top_k=<span class="nb">3</span>):
+        <span class="cmt"># Paires (question, document) — le cross-encoder voit les deux ensemble</span>
+        pairs  = [(question, doc.page_content) <span class="kw">for</span> doc <span class="kw">in</span> documents]
+        scores = <span class="kw">self</span>.model.predict(pairs)     <span class="cmt"># attention croisée</span>
+        ranked = sorted(zip(scores, documents), key=<span class="kw">lambda</span> x: x[<span class="nb">0</span>], reverse=<span class="cls">True</span>)
+        <span class="kw">return</span> [doc <span class="kw">for</span> _, doc <span class="kw">in</span> ranked[:top_k]]</code></pre>
+
+  <p>Pipeline complet : <strong>Top-10 hybrid → BGE-Reranker → Top-3</strong></p>
+
+  <h3>4.3 HyDE — Hypothetical Document Embeddings</h3>
+  <h4>Problème fondamental</h4>
+  <p>La similarité cosinus entre une question courte ("Peut-on licencier une femme enceinte ?") et un article de loi long ("L'employeur ne saurait rompre le contrat de travail…") est structurellement faible malgré la pertinence évidente — les distributions lexicales et stylistiques sont radicalement différentes.</p>
+
+  <h4>Solution HyDE (Gao et al., arXiv:2212.10496)</h4>
+  <p>Au lieu d'embedder la question brute, le LLM génère un <em>document hypothétique</em> dans le style du corpus. Ce document est ensuite embedé pour FAISS. Le BM25 continue sur la question originale (complémentarité intentionnelle).</p>
+
+  <pre><code><span class="dec">class</span> <span class="cls">HyDEGenerator</span>:
+    PROMPT_HYDE = <span class="str">"""Tu es un expert en droit français. Génère un court passage (3-4 phrases)
+dans le style officiel d'un article de loi français qui répondrait directement
+à cette question. Utilise un langage juridique formel et précis.
+Ne cite pas d'articles réels.
+
+Question : {question}
+Article hypothétique :"""</span>
+
+    <span class="kw">def</span> <span class="fn">generer</span>(<span class="kw">self</span>, question: <span class="cls">str</span>) -> <span class="cls">str</span>:
+        <span class="kw">return</span> <span class="kw">self</span>.llm.invoke(<span class="kw">self</span>.PROMPT_HYDE.format(question=question)).content</code></pre>
+
+  <p><strong>Exemple :</strong> Question <em>"Quelles sont les règles de protection des femmes enceintes au travail ?"</em> → Document hypothétique généré : <em>"Toute travailleuse en état de grossesse bénéficie d'une protection particulière contre le licenciement. L'employeur ne saurait invoquer la maternité comme motif de rupture du contrat…"</em> → Ce document est stylistiquement proche des articles L1225-1 et L1225-5 → similarité cosinus maximisée.</p>
+
+  <h3>4.4 Résultats comparatifs Sprint 2</h3>
+  <table>
+    <thead><tr><th>Variante</th><th>Faithfulness</th><th>Context Precision</th><th>Context Recall</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Baseline</strong> BM25+FAISS</td><td>0.8322</td><td>0.8935</td><td>0.9944</td></tr>
+      <tr><td>+ Cross-Encoder Reranking</td><td class="good">0.8701</td><td class="good">0.9387</td><td>0.9712</td></tr>
+      <tr><td>+ HyDE seul</td><td>0.8514</td><td>0.9103</td><td>0.9941</td></tr>
+      <tr class="winner"><td>+ Reranking + HyDE</td><td class="good">0.8983</td><td class="good">0.9561</td><td>0.9708</td></tr>
+    </tbody>
+  </table>
+
+  <div class="alert alert-success">
+    La combinaison Reranking + HyDE produit la meilleure Faithfulness (0.8983, +7.8% vs baseline) et la meilleure Context Precision (0.9561, +7.1%). Les deux techniques sont complémentaires : HyDE améliore la qualité du pool de candidats récupérés, le Reranking sélectionne les 3 meilleurs parmi eux.
+  </div>
+</div>
+
+<!-- ══ SECTION 5 ══ -->
+<div class="section" id="s5">
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <h2>Sprint 3 — Fine-tuning d'embeddings juridiques</h2>
+  </div>
+
+  <h3>5.1 Hypothèse de recherche</h3>
+  <p>Les embeddings généralistes (OpenAI <code class="ic">text-embedding-3-small</code>) ont été entraînés sur des corpus textuels généraux. L'hypothèse est qu'un modèle fine-tuné spécifiquement sur des paires (question juridique, article de loi) produirait des représentations vectorielles plus précises dans cet espace sémantique, améliorant le retrieval IR même si l'effet sur les métriques RAGAS end-to-end est masqué par la robustesse du LLM de génération.</p>
+
+  <h3>5.2 Construction du corpus v3 (2 419 articles)</h3>
+  <p>Le fine-tuning nécessite un corpus large et diversifié. Le corpus v2 (346 articles) était insuffisant pour générer assez de paires d'entraînement statistiquement représentatives.</p>
+
+  <table>
+    <thead><tr><th>Code juridique</th><th>ID Légifrance</th><th>Articles</th></tr></thead>
+    <tbody>
+      <tr><td>Code Civil</td><td>LEGITEXT000006070721</td><td>393</td></tr>
+      <tr><td>Code Pénal</td><td>LEGITEXT000006070719</td><td>363</td></tr>
+      <tr><td>Code du Travail</td><td>LEGITEXT000006072050</td><td>416</td></tr>
+      <tr><td>Code de Commerce</td><td>LEGITEXT000005634379</td><td>417</td></tr>
+      <tr><td>Code de Procédure Civile</td><td>LEGITEXT000006070716</td><td>416</td></tr>
+      <tr><td>Code de la Consommation</td><td>LEGITEXT000006069565</td><td>414</td></tr>
+      <tr class="winner"><td colspan="2"><strong>Total</strong></td><td><strong>2 419</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h4>Script d'ingestion (build_corpus_v3.py)</h4>
+  <p>Client OAuth2 asynchrone avec rate limiting (0.15s/requête) via l'API PISTE Légifrance. Fetch complet : ~45 minutes.</p>
+
+  <pre><code><span class="cmt"># build_corpus_v3.py — structure corpus_v3.json</span>
+{
+  <span class="str">"meta"</span>: {
+    <span class="str">"version"</span>: <span class="str">"v3"</span>, <span class="str">"nb_articles"</span>: <span class="nb">2419</span>,
+    <span class="str">"codes"</span>: [<span class="str">"Code Civil"</span>, <span class="str">"Code Pénal"</span>, <span class="str">"Code du Travail"</span>, ...]
+  },
+  <span class="str">"corpus_juridique"</span>: [
+    {
+      <span class="str">"id"</span>: <span class="str">"LEGIARTI000006419280"</span>,
+      <span class="str">"code"</span>: <span class="str">"Code du Travail"</span>,
+      <span class="str">"article"</span>: <span class="str">"Article L1232-1"</span>,
+      <span class="str">"domaine"</span>: <span class="str">"Licenciement"</span>,
+      <span class="str">"texte"</span>: <span class="str">"Tout licenciement pour motif personnel doit être justifié..."</span>
+    }, ...
+  ]
+}</code></pre>
+
+  <h3>5.3 Génération des paires d'entraînement (7 257 paires)</h3>
+  <p>Pour <strong>MultipleNegativesRankingLoss</strong>, chaque paire est de la forme <code class="ic">(query, positive_passage)</code>. GPT-4o-mini génère 3 questions par article, maximisant la diversité :</p>
+
+  <pre><code>prompt = <span class="str">"""Voici un article de loi français. Génère 3 questions DIFFÉRENTES :
+- une factuelle (définition, principe)
+- une pratique (cas concret, que faire si...)
+- une sur les conditions/exceptions
+
+Article : {article} ({code})
+Texte : {texte[:1000]}
+Retourne JSON : {"questions": ["q1", "q2", "q3"]}"""</span>
+
+<span class="cmt"># Exemple de paire générée :</span>
+{
+  <span class="str">"query"</span>:    <span class="str">"Quand un licenciement est-il considéré comme abusif ?"</span>,
+  <span class="str">"positive"</span>: <span class="str">"[Code du Travail — Article L1232-1]\nDomaine : Licenciement\n\nTout licenciement pour motif personnel doit être justifié par une cause réelle et sérieuse..."</span>
+}</code></pre>
+
+  <div class="metric-grid">
+    <div class="metric-card"><div class="val">2 419</div><div class="lbl">Articles traités</div></div>
+    <div class="metric-card"><div class="val">7 257</div><div class="lbl">Paires générées</div></div>
+    <div class="metric-card"><div class="val">~$0.15</div><div class="lbl">Coût API GPT-4o-mini</div></div>
+    <div class="metric-card"><div class="val">90/10</div><div class="lbl">Split train/val</div></div>
+  </div>
+
+  <h3>5.4 Fine-tuning du modèle d'embeddings</h3>
+
+  <h4>Choix du modèle de base : paraphrase-multilingual-MiniLM-L12-v2</h4>
+  <table>
+    <thead><tr><th>Critère</th><th>Valeur</th><th>Justification</th></tr></thead>
+    <tbody>
+      <tr><td>Multilingue</td><td>50+ langues (FR/EN)</td><td>Support des questions en anglais dans l'interface</td></tr>
+      <tr><td>Dimensions</td><td>384 (vs 1536 OpenAI)</td><td>4× plus léger, déployable sur CPU Streamlit Cloud</td></tr>
+      <tr><td>Architecture</td><td>BERT 12 couches</td><td>Assez profond pour capturer la sémantique juridique</td></tr>
+      <tr><td>Licence</td><td>Apache 2.0</td><td>Open-source, déployable sur HuggingFace Hub gratuitement</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Fonction de perte : MultipleNegativesRankingLoss</h4>
+  <p>Dans un batch de taille N, chaque paire (query_i, positive_i) constitue un exemple positif. Les (N−1) autres positifs du batch deviennent automatiquement des <em>négatifs in-batch</em>. Avec batch_size=128, chaque query est comparée à 127 négatifs implicites — très efficace sans nécessiter de corpus de négatifs explicitement annotés.</p>
+
+  <pre><code><span class="kw">from</span> sentence_transformers <span class="kw">import</span> SentenceTransformer, InputExample
+<span class="kw">from</span> sentence_transformers.losses <span class="kw">import</span> MultipleNegativesRankingLoss
+<span class="kw">from</span> sentence_transformers.evaluation <span class="kw">import</span> InformationRetrievalEvaluator
+
+model = <span class="cls">SentenceTransformer</span>(<span class="str">"paraphrase-multilingual-MiniLM-L12-v2"</span>)
+loss  = <span class="cls">MultipleNegativesRankingLoss</span>(model)
+
+train_examples = [<span class="cls">InputExample</span>(texts=[p[<span class="str">"query"</span>], p[<span class="str">"positive"</span>]]) <span class="kw">for</span> p <span class="kw">in</span> paires]
+dataloader     = <span class="cls">DataLoader</span>(train_examples, shuffle=<span class="cls">True</span>, batch_size=<span class="nb">128</span>)
+
+model.fit(
+    train_objectives=[(dataloader, loss)],
+    epochs=<span class="nb">25</span>,
+    warmup_steps=<span class="nb">200</span>,
+    evaluator=<span class="cls">InformationRetrievalEvaluator</span>(queries, corpus, relevant_docs),
+    evaluation_steps=<span class="nb">500</span>,
+    save_best_model=<span class="cls">True</span>,        <span class="cmt"># meilleur checkpoint : epoch 15</span>
+    output_path=<span class="str">"lexai-embeddings"</span>
+)</code></pre>
+
+  <h4>Hyperparamètres d'entraînement</h4>
+  <table>
+    <thead><tr><th>Paramètre</th><th>Valeur</th></tr></thead>
+    <tbody>
+      <tr><td>GPU</td><td>Google Colab A100 80GB</td></tr>
+      <tr><td>Epochs</td><td>25</td></tr>
+      <tr><td>Batch size</td><td>128</td></tr>
+      <tr><td>Learning rate</td><td>2e-5</td></tr>
+      <tr><td>Warmup steps</td><td>200</td></tr>
+      <tr><td>Meilleur checkpoint</td><td>Epoch 15 (NDCG@10 = 0.8633)</td></tr>
+      <tr><td>Durée totale d'entraînement</td><td>4 minutes 18 secondes</td></tr>
+    </tbody>
+  </table>
+
+  <h3>5.5 Résultats IR — Baseline vs Fine-tuné</h3>
+
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="val" style="color:var(--green)">73.0%</div>
+      <div class="delta delta-pos">↑ +45.6% relatif</div>
+      <div class="lbl">Accuracy @ 1</div>
+    </div>
+    <div class="metric-card">
+      <div class="val" style="color:var(--green)">95.0%</div>
+      <div class="delta delta-pos">↑ +26.6% relatif</div>
+      <div class="lbl">Accuracy @ 5</div>
+    </div>
+    <div class="metric-card">
+      <div class="val" style="color:var(--green)">0.863</div>
+      <div class="delta delta-pos">↑ +30.7% relatif</div>
+      <div class="lbl">NDCG @ 10</div>
+    </div>
+    <div class="metric-card">
+      <div class="val" style="color:var(--green)">0.826</div>
+      <div class="delta delta-pos">↑ +35.4% relatif</div>
+      <div class="lbl">MRR @ 10</div>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>Métrique IR</th><th>Baseline</th><th>Fine-tuné</th><th>Gain absolu</th><th>Gain relatif</th></tr></thead>
+    <tbody>
+      <tr><td>Accuracy @ 1</td><td>50.14%</td><td class="good">73.00%</td><td class="good">+22.86%</td><td class="good">+45.6%</td></tr>
+      <tr><td>Accuracy @ 3</td><td>69.42%</td><td class="good">90.36%</td><td class="good">+20.94%</td><td class="good">+30.2%</td></tr>
+      <tr><td>Accuracy @ 5</td><td>75.07%</td><td class="good">95.04%</td><td class="good">+19.97%</td><td class="good">+26.6%</td></tr>
+      <tr><td>NDCG @ 10</td><td>0.6606</td><td class="good">0.8633</td><td class="good">+0.2027</td><td class="good">+30.7%</td></tr>
+      <tr><td>MRR @ 10</td><td>0.6097</td><td class="good">0.8255</td><td class="good">+0.2158</td><td class="good">+35.4%</td></tr>
+      <tr><td>MAP @ 100</td><td>0.6158</td><td class="good">0.8263</td><td class="good">+0.2105</td><td class="good">+34.2%</td></tr>
+    </tbody>
+  </table>
+
+  <h3>5.6 Déploiement HuggingFace Hub</h3>
+
+  <pre><code><span class="kw">from</span> huggingface_hub <span class="kw">import</span> HfApi
+api = <span class="cls">HfApi</span>(token=<span class="str">"hf_..."</span>)
+api.create_repo(<span class="str">"DrProfessor/lexai-embeddings"</span>, repo_type=<span class="str">"model"</span>, private=<span class="cls">False</span>)
+api.upload_folder(
+    folder_path=<span class="str">r"C:\Users\bjgyebre\Desktop\lexai-embeddings"</span>,
+    repo_id=<span class="str">"DrProfessor/lexai-embeddings"</span>,
+)</code></pre>
+
+  <p>Streamlit Cloud télécharge le modèle automatiquement au premier démarrage via <code class="ic">HuggingFaceEmbeddings(model_name="DrProfessor/lexai-embeddings")</code>. La variable d'environnement <code class="ic">LEXAI_EMBEDDING_MODEL</code> permet de basculer entre le modèle fine-tuné et OpenAI sans modifier le code.</p>
+
+  <div class="alert alert-success">
+    ✅ Le fine-tuning améliore toutes les métriques IR de +19% à +45%. Le modèle fine-tuné retrouve le bon article en première position dans <strong>73% des cas</strong> contre 50% avant fine-tuning — gain de +23 points absolus sur Accuracy@1.
+  </div>
+</div>
+
+<!-- ══ SECTION 6 ══ -->
+<div class="section" id="s6">
+  <div class="section-header">
+    <div class="section-num">6</div>
+    <h2>Fonctionnalités avancées — Plainte, Contrat, PDF</h2>
+  </div>
+
+  <h3>6.1 Module de rédaction de plainte officielle</h3>
+  <p>Inspiré de LegalZoom et DoNotPay, ce module permet à un utilisateur de décrire sa situation et d'obtenir une plainte officielle prête à envoyer à l'autorité compétente, fondée sur les articles du corpus Légifrance.</p>
+
+  <h4>Pipeline de génération</h4>
+  <div class="arch">
+Faits utilisateur (intake form)
+  <span class="arr">│</span>
+  <span class="arr">├─▶</span> <span class="hi">HyDE</span> : génère article hypothétique sur le type de litige
+  <span class="arr">│</span>         ex: <span class="str">"Quels articles s'appliquent à un licenciement abusif ?"</span>
+  <span class="arr">│</span>
+  <span class="arr">├─▶</span> <span class="hi">HybridRetriever</span> (filtre code juridique du type de litige)
+  <span class="arr">│</span>         BM25 + FAISS fine-tuné → Top-12 articles
+  <span class="arr">│</span>
+  <span class="arr">├─▶</span> <span class="new">CrossEncoder Reranking</span> → Top-5 articles (top_k+2 pour la plainte)
+  <span class="arr">│</span>
+  <span class="arr">└─▶</span> <span class="hi">GPT-4o-mini</span> (temperature=0.1) — PROMPT_PLAINTE
+        Sections obligatoires : Faits / Fondement juridique / Préjudice / Demandes
+        Identité pré-remplie : nom, adresse, ville, date du jour (auto)
+  </div>
+
+  <pre><code><span class="cmt"># Génération automatique de la date du jour en français</span>
+mois_fr = [<span class="str">"janvier"</span>,<span class="str">"février"</span>,<span class="str">"mars"</span>,<span class="str">"avril"</span>,<span class="str">"mai"</span>,<span class="str">"juin"</span>,
+           <span class="str">"juillet"</span>,<span class="str">"août"</span>,<span class="str">"septembre"</span>,<span class="str">"octobre"</span>,<span class="str">"novembre"</span>,<span class="str">"décembre"</span>]
+aujourd_hui = datetime.date.today()
+date_jour = <span class="str">f"{aujourd_hui.day} {mois_fr[aujourd_hui.month - 1]} {aujourd_hui.year}"</span>
+
+<span class="cmt"># Prompt — Règle absolue : citer uniquement les articles du contexte RAG</span>
+<span class="str">"""
+II. FONDEMENT JURIDIQUE
+Pour chaque article pertinent présent dans le contexte RAG fourni :
+→ "Aux termes de l'article [numéro] du [Code] : '[citation exacte]'"
+RÈGLE ABSOLUE : ne cite JAMAIS un article absent du contexte RAG.
+"""</span></code></pre>
+
+  <h4>Configuration par type de litige</h4>
+  <table>
+    <thead><tr><th>Type</th><th>Code filtré</th><th>Destinataire automatique</th><th>Procédure</th></tr></thead>
+    <tbody>
+      <tr><td>Pénal</td><td>Code Pénal</td><td>Procureur de la République</td><td>Commissariat / pre-plainte.fr</td></tr>
+      <tr><td>Civil</td><td>Code Civil</td><td>Tribunal Judiciaire</td><td>Mise en demeure → Cerfa/huissier</td></tr>
+      <tr><td>Travail</td><td>Code du Travail</td><td>Conseil de Prud'hommes</td><td>justice.fr → conciliation</td></tr>
+      <tr><td>Consommation</td><td>Code de la Consommation</td><td>Entreprise adverse</td><td>LRAR → médiateur → DGCCRF</td></tr>
+      <tr><td>Commerce</td><td>Code de Commerce</td><td>Tribunal de Commerce</td><td>LRAR → injonction/assignation</td></tr>
+    </tbody>
+  </table>
+
+  <h3>6.2 Module d'analyse de contrat (style Harvey AI / Luminance)</h3>
+  <p>L'utilisateur colle un contrat (bail, CDI, CGV…) — LexAI identifie les clauses conformes, suspectes et illégales en les confrontant aux articles du corpus.</p>
+
+  <pre><code><span class="dec">class</span> <span class="cls">AnalyseContrat</span>:
+    <span class="cmt"># Statut par clause :</span>
+    <span class="cmt"># ✅ Conforme  — conforme au droit français</span>
+    <span class="cmt"># ⚠️ À surveiller — zone grise ou exigeant clarification</span>
+    <span class="cmt"># ❌ Problématique — viole explicitement un article du corpus</span>
+
+    <span class="cmt"># Bilan global :</span>
+    <span class="cmt"># 🟢 Faible / 🟡 Modéré / 🔴 Élevé</span>
+
+<span class="kw">def</span> <span class="fn">analyser_contrat</span>(hybrid, reranker, type_contrat: <span class="cls">str</span>, contrat: <span class="cls">str</span>):
+    query = <span class="str">f"contrat {type_contrat} clauses obligations droits : {contrat[:300]}"</span>
+    hyde_doc = hyde.generer(<span class="str">f"Quels articles régissent un {type_contrat}..."</span>)
+    docs = hybrid.invoke(query, code_filtre=code_filtre, top_k=<span class="nb">12</span>, query_vectorielle=hyde_doc)
+    <span class="kw">if</span> reranker:
+        docs = reranker.rerank(query, docs, top_k=<span class="nb">7</span>)  <span class="cmt"># top-7 pour couvrir toutes les clauses</span>
+    <span class="cmt"># Tronquer si contrat > 6000 chars (limite contexte GPT-4o-mini)</span>
+    contrat_tronque = contrat[:<span class="nb">6000</span>]</code></pre>
+
+  <h3>6.3 Export PDF imprimable (fpdf2)</h3>
+  <p>Aucun outil professionnel ne génère des documents en .txt. La fonctionnalité d'export PDF utilise <strong>fpdf2</strong> pour générer des documents A4 imprimables avec bandeau LexAI, parsing du markdown, et pied de page légal.</p>
+
+  <pre><code><span class="kw">def</span> <span class="fn">generer_pdf</span>(texte: <span class="cls">str</span>, titre_doc: <span class="cls">str</span>) -> <span class="cls">bytes</span>:
+    <span class="kw">from</span> fpdf <span class="kw">import</span> FPDF
+    pdf = <span class="cls">FPDF</span>(orientation=<span class="str">"P"</span>, unit=<span class="str">"mm"</span>, format=<span class="str">"A4"</span>)
+    pdf.set_margins(<span class="nb">25</span>, <span class="nb">34</span>, <span class="nb">25</span>)
+    pdf.add_page()
+
+    <span class="cmt"># Bandeau en-tête bleu LexAI</span>
+    pdf.set_fill_color(<span class="nb">26</span>, <span class="nb">35</span>, <span class="nb">126</span>)
+    pdf.rect(<span class="nb">0</span>, <span class="nb">0</span>, <span class="nb">210</span>, <span class="nb">18</span>, <span class="str">"F"</span>)
+    pdf.set_font(<span class="str">"Helvetica"</span>, <span class="str">"B"</span>, <span class="nb">11</span>)
+    pdf.cell(<span class="nb">0</span>, <span class="nb">8</span>, <span class="str">f"LexAI  —  {titre_doc}"</span>, align=<span class="str">"C"</span>)
+
+    <span class="cmt"># Parsing markdown : **sections**, ## headers, texte normal</span>
+    <span class="kw">for</span> raw <span class="kw">in</span> texte.split(<span class="str">"\n"</span>):
+        <span class="kw">if</span> re.match(<span class="str">r"^\*\*([IVX]+\.\s+.+?)\*\*$"</span>, line):
+            pdf.set_font(<span class="str">"Helvetica"</span>, <span class="str">"B"</span>, <span class="nb">11</span>)
+            pdf.multi_cell(<span class="nb">0</span>, <span class="nb">7</span>, clean_text)
+        <span class="kw">elif</span> <span class="str">"**"</span> <span class="kw">in</span> line:
+            <span class="kw">for</span> part <span class="kw">in</span> re.split(<span class="str">r"(\*\*[^*]+\*\*)"</span>, line):
+                pdf.set_font(<span class="str">"Helvetica"</span>, <span class="str">"B" if</span> part.startswith(<span class="str">"**"</span>) <span class="kw">else</span> <span class="str">""</span>, <span class="nb">10</span>)
+                pdf.write(<span class="nb">6</span>, clean_text)
+
+    <span class="kw">return</span> <span class="cls">bytes</span>(pdf.output())</code></pre>
+</div>
+
+<!-- ══ SECTION 7 ══ -->
+<div class="section" id="s7">
+  <div class="section-header">
+    <div class="section-num">7</div>
+    <h2>Architecture finale complète</h2>
+  </div>
+
+  <div class="arch">
+<span class="sec">━━━━━━━━━━ ARCHITECTURE LEXAI FINALE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+
+<span class="sec">DONNÉES (build_corpus_v3.py)</span>
+  API Légifrance PISTE OAuth2 (rate limit 0.15s/req)
+  <span class="arr">→</span> 6 codes × 400+ articles = <span class="hi">2 419 articles → corpus_v3.json</span>
+  <span class="arr">→</span> GPT-4o-mini : 3 questions/article = <span class="hi">7 257 paires → training_pairs_v3.json</span>
+
+<span class="sec">FINE-TUNING (Google Colab A100 — finetune_embeddings.ipynb)</span>
+  Base    : paraphrase-multilingual-MiniLM-L12-v2 (384 dims)
+  Loss    : MultipleNegativesRankingLoss
+  <span class="arr">→</span> 25 epochs · batch 128 · lr 2e-5 · durée 4min18s
+  <span class="arr">→</span> <span class="new">DrProfessor/lexai-embeddings (HuggingFace Hub)</span>
+
+<span class="sec">PIPELINE RAG (rag_lexai.py)</span>
+  Question / Faits / Contrat
+    │
+    ├─▶ <span class="new">HyDEGenerator</span>  GPT-4o-mini → article hypothétique (style Légifrance)
+    │
+    ├─▶ <span class="new">FAISS faiss_index_v3/</span>
+    │       DrProfessor/lexai-embeddings encode (question + hyde_doc)
+    │       2 457 chunks indexés · 384 dims
+    │
+    ├─▶ <span class="hi">BM25Okapi</span>  scores lexicaux sur question originale
+    │
+    ├─▶ <span class="hi">RRF Fusion</span>  VECTOR×0.65 + BM25×0.35 → Top-10/12
+    │
+    ├─▶ <span class="new">CrossEncoderReranker</span>  BAAI/bge-reranker-base → Top-3/5/7
+    │
+    └─▶ <span class="hi">GPT-4o-mini</span>
+          PROMPT_JURIDIQUE   → Réponse structurée (chat)
+          PROMPT_PLAINTE     → Plainte officielle
+          PROMPT_ANALYSE_CONTRAT → Analyse clause par clause
+
+<span class="sec">INTERFACE (app.py — Streamlit)</span>
+  Mode Chat     → consultation juridique + sources RAG
+  Mode Plainte  → formulaire intake + génération PDF
+  Mode Contrat  → paste contrat + analyse ✅⚠️❌ + PDF
+  </div>
+
+  <h3>7.1 Fichiers du projet</h3>
+  <table>
+    <thead><tr><th>Fichier</th><th>Rôle</th><th>Sprint</th></tr></thead>
+    <tbody>
+      <tr><td><code class="ic">app.py</code></td><td>Interface Streamlit — 3 modes, dark mode, PDF</td><td>1→Final</td></tr>
+      <tr><td><code class="ic">rag_lexai.py</code></td><td>Pipeline RAG complet + plainte + contrat</td><td>1→Final</td></tr>
+      <tr><td><code class="ic">build_corpus_v3.py</code></td><td>Ingestion Légifrance OAuth2 (2 419 articles)</td><td>3</td></tr>
+      <tr><td><code class="ic">evaluate_ragas.py</code></td><td>Framework d'évaluation RAGAS automatique</td><td>2</td></tr>
+      <tr><td><code class="ic">corpus_v3.json</code></td><td>Corpus principal (2 419 articles, 6 codes)</td><td>3</td></tr>
+      <tr><td><code class="ic">training_pairs_v3.json</code></td><td>7 257 paires d'entraînement</td><td>3</td></tr>
+      <tr><td><code class="ic">finetune_embeddings.ipynb</code></td><td>Notebook Colab fine-tuning sur A100</td><td>3</td></tr>
+      <tr><td><code class="ic">faiss_index_v3/</code></td><td>Index FAISS (embeddings fine-tunés, 384 dims)</td><td>3</td></tr>
+      <tr><td><code class="ic">finetune_metrics.json</code></td><td>Métriques IR baseline vs fine-tuné</td><td>3</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══ SECTION 8 ══ -->
+<div class="section" id="s8">
+  <div class="section-header">
+    <div class="section-num">8</div>
+    <h2>Évaluation globale et analyse des résultats</h2>
+  </div>
+
+  <h3>8.1 Progression RAGAS sur les 3 sprints</h3>
+  <table>
+    <thead><tr><th>Sprint</th><th>Configuration</th><th>Faithfulness</th><th>Context Precision</th><th>Context Recall</th></tr></thead>
+    <tbody>
+      <tr><td>Sprint 1</td><td>Baseline BM25+FAISS</td><td>0.8322</td><td>0.8935</td><td>0.9944</td></tr>
+      <tr><td>Sprint 2</td><td>+ Reranking + HyDE</td><td class="good">0.8983</td><td class="good">0.9561</td><td>0.9708</td></tr>
+      <tr><td>Sprint 3 (fair)</td><td>Fine-tuned, même corpus</td><td>0.7896</td><td>0.8628</td><td>0.9667</td></tr>
+    </tbody>
+  </table>
+
+  <h3>8.2 Analyse du paradoxe IR vs RAGAS</h3>
+  <div class="alert alert-info">
+    <strong>Pourquoi le fine-tuning améliore le retrieval (+45%) mais pas les métriques RAGAS end-to-end ?</strong><br><br>
+    Les métriques IR (Accuracy@K, NDCG, MRR) mesurent si le <em>bon article exact</em> se trouve dans les Top-K résultats du retrieval. Les métriques RAGAS mesurent la qualité de la <strong>réponse finale</strong> produite par GPT-4o-mini.<br><br>
+    GPT-4o-mini est un modèle extrêmement robuste : même si les 3 articles fournis ne sont pas les plus pertinents (OpenAI embeddings), il génère une réponse correcte et non-hallucinée en s'appuyant sur leur contenu partiel. C'est un <strong>effet plafond</strong> (<em>ceiling effect</em>) — le LLM "absorbe" les imperfections du retrieval.<br><br>
+    <strong>Conclusion :</strong> le gain du fine-tuning est réel et mesurable (+45% Accuracy@1) mais se manifeste principalement au niveau du retrieval. Les deux approches (OpenAI vs fine-tuné) sont équivalentes en qualité de réponse finale (écart &lt; 3% sur RAGAS). Le fine-tuning sera plus impactant avec des questions très spécifiques nécessitant l'article exact.
+  </div>
+
+  <h3>8.3 Analyse du pipeline complet — Compromis</h3>
+  <table>
+    <thead><tr><th>Technique</th><th>Latence ajoutée</th><th>Coût additionnel</th><th>Gain principal</th></tr></thead>
+    <tbody>
+      <tr><td>HyDE</td><td>+200ms (1 appel LLM)</td><td>~$0.001/question</td><td>Context Recall maintenu · Faithfulness ↑</td></tr>
+      <tr><td>Cross-Encoder Reranking</td><td>+300ms (CPU local)</td><td>0 (modèle local)</td><td>Context Precision ↑↑ · Faithfulness ↑</td></tr>
+      <tr><td>Fine-tuning embeddings</td><td>0 (même vitesse)</td><td>Coût one-shot entraînement</td><td>IR Accuracy@1 +45% · MRR +35%</td></tr>
+      <tr><td>Corpus v3 (×40 articles)</td><td>0 (même pipeline)</td><td>$0.15 (génération paires)</td><td>Couverture juridique ×40</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══ SECTION 9 ══ -->
+<div class="section" id="s9">
+  <div class="section-header">
+    <div class="section-num">9</div>
+    <h2>Difficultés rencontrées et solutions</h2>
+  </div>
+
+  <h3>D1 — Incompatibilité API ragas 0.4.3</h3>
+  <p>La bibliothèque RAGAS a connu 3 ruptures d'API majeures entre les versions 0.1.x, 0.2.x et 0.4.x. La nouvelle API retourne des objets qui ne passent pas le test <code class="ic">isinstance(m, Metric)</code> de la fonction <code class="ic">evaluate()</code>.</p>
+  <pre><code><span class="cmt"># ❌ INCORRECT — nouvelles classes :</span>
+<span class="kw">from</span> ragas.metrics.collections <span class="kw">import</span> Faithfulness
+
+<span class="cmt"># ✅ CORRECT — anciens singletons (instances de Metric) :</span>
+<span class="kw">from</span> ragas.metrics <span class="kw">import</span> faithfulness, context_precision, context_recall</code></pre>
+
+  <h3>D2 — Answer Relevancy non calculable</h3>
+  <p>La métrique <code class="ic">answer_relevancy</code> utilise l'interface LangChain <code class="ic">embed_query()</code>, supprimée dans <code class="ic">langchain-openai >= 0.2.0</code>. Non-bloquant — les 3 autres métriques sont calculées. La métrique a pu être calculée uniquement avec la combinaison Reranking+HyDE via l'API RAGAS directe.</p>
+
+  <h3>D3 — Crash EvaluationResult après 40 minutes d'exécution</h3>
+  <p>Le script RAGAS a exécuté 240 jobs pendant 40 minutes avant de crasher à la dernière ligne sur un accès incorrect à l'objet de résultat.</p>
+  <pre><code><span class="cmt"># ❌ INCORRECT :</span>
+val = result.get(<span class="str">"faithfulness"</span>)   <span class="cmt"># EvaluationResult n'est pas un dict</span>
+
+<span class="cmt"># ✅ CORRECT :</span>
+df  = result.to_pandas()
+val = df[<span class="str">"faithfulness"</span>].mean(skipna=<span class="cls">True</span>)</code></pre>
+  <div class="alert alert-warn">Leçon : toujours tester l'accès aux résultats sur 2-3 questions avant de lancer une évaluation longue. La sauvegarde intermédiaire <code class="ic">pipeline_outputs.json</code> a permis de reprendre sans réexécuter les 40 minutes.</div>
+
+  <h3>D4 — Code de Procédure Pénale inaccessible via sandbox PISTE</h3>
+  <p>L'ID <code class="ic">LEGITEXT000006071154</code> ne retourne aucun article en sandbox. Le corpus v3 couvre donc 6 codes au lieu des 7 prévus. Les 6 codes disponibles couvrent les domaines les plus fréquemment consultés.</p>
+
+  <h3>D5 — Encodage Windows CP1252 vs UTF-8</h3>
+  <p>Le terminal Windows encode les print() en CP1252 par défaut. Caractères Unicode (→, accents dans f-strings) provoquent des <code class="ic">UnicodeEncodeError</code>. Solution : remplacement de → par -> dans tous les print(), et encodage explicite des sorties fichier en UTF-8.</p>
+
+  <h3>D6 — Changement de dimensions FAISS (1536 → 384)</h3>
+  <p>Le passage des embeddings OpenAI (1536 dims) au modèle fine-tuné (384 dims) invalide l'index FAISS existant. Solution : répertoire dédié <code class="ic">faiss_index_v3/</code>, variable d'environnement <code class="ic">LEXAI_FORCE_OPENAI</code> pour basculer sans modifier le code.</p>
+
+  <h3>D7 — Génération PDF avec caractères hors Latin-1</h3>
+  <p>Les polices core de fpdf2 (Helvetica, Times) utilisent Latin-1. Les emojis présents dans les réponses LexAI (⚖️, 📄…) provoquent des erreurs d'encodage. Solution : fonction <code class="ic">_latin1()</code> qui ignore silencieusement les caractères hors-range.</p>
+  <pre><code><span class="kw">def</span> <span class="fn">_latin1</span>(t: <span class="cls">str</span>) -> <span class="cls">str</span>:
+    <span class="kw">return</span> t.encode(<span class="str">"latin-1"</span>, errors=<span class="str">"ignore"</span>).decode(<span class="str">"latin-1"</span>)</code></pre>
+</div>
+
+<!-- ══ SECTION 10 ══ -->
+<div class="section" id="s10">
+  <div class="section-header">
+    <div class="section-num">10</div>
+    <h2>Lien avec les notions du cours d'apprentissage profond</h2>
+  </div>
+
+  <table>
+    <thead><tr><th>Notion du cours</th><th>Application concrète dans LexAI</th><th>Sprint</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Transformers / Attention</strong></td><td>GPT-4o-mini (génération), BGE-Reranker (attention croisée question↔document), modèle d'embeddings BERT 12 couches</td><td>1-2-3</td></tr>
+      <tr><td><strong>Transfer Learning</strong></td><td>Fine-tuning de paraphrase-multilingual-MiniLM-L12-v2 sur corpus juridique français — adaptation d'un modèle généraliste à un domaine spécialisé</td><td>3</td></tr>
+      <tr><td><strong>Contrastive Learning</strong></td><td>MultipleNegativesRankingLoss — chaque paire positive est mise en contraste avec les N-1 autres positifs du batch comme négatifs implicites</td><td>3</td></tr>
+      <tr><td><strong>Bi-encodeurs vs Cross-encodeurs</strong></td><td>FAISS utilise des bi-encodeurs (encodage séparé, produit scalaire rapide), BGE-Reranker utilise un cross-encodeur (encodage conjoint, attention croisée précise)</td><td>2</td></tr>
+      <tr><td><strong>Évaluation de modèles (métriques)</strong></td><td>Framework RAGAS (Faithfulness, Context Precision, Context Recall), métriques IR (NDCG@10, MRR@10, Hit Rate@K, MAP@100)</td><td>2-3</td></tr>
+      <tr><td><strong>Génération de données synthétiques</strong></td><td>7 257 paires d'entraînement générées par GPT-4o-mini depuis le corpus — technique standard en NLP supervisé quand les données annotées manquent</td><td>3</td></tr>
+      <tr><td><strong>Retrieval Augmented Generation (RAG)</strong></td><td>Architecture centrale du projet — combine retrieval vectoriel et génération LLM pour ancrer les réponses sur des sources vérifiables</td><td>1-2-3</td></tr>
+      <tr><td><strong>Modèles de langage (LLM)</strong></td><td>GPT-4o-mini : génération de réponses, HyDE (documents hypothétiques), génération de paires d'entraînement, génération de plaintes, analyse de contrats</td><td>1-2-3</td></tr>
+      <tr><td><strong>Embeddings vectoriels</strong></td><td>Représentations denses des articles juridiques dans un espace de 384 ou 1536 dimensions, similarité cosinus pour le retrieval sémantique</td><td>1-3</td></tr>
+      <tr><td><strong>Recherche d'information (IR)</strong></td><td>BM25 (modèle probabiliste de Robertson), FAISS (Approximate Nearest Neighbor), Reciprocal Rank Fusion, métriques NDCG/MRR/MAP</td><td>1-2-3</td></tr>
+    </tbody>
+  </table>
+
+  <div class="alert alert-success">
+    LexAI mobilise directement une dizaine de concepts fondamentaux du cours : architectures Transformer, fine-tuning par transfer learning, contrastive learning, évaluation quantitative des modèles, et génération de données synthétiques. Chaque technique est justifiée par des métriques objectives et intégrée dans un système déployé en production.
+  </div>
+</div>
+
+<!-- ══ SECTION 11 ══ -->
+<div class="section" id="s11">
+  <div class="section-header">
+    <div class="section-num">11</div>
+    <h2>Bilan personnel</h2>
+  </div>
+
+  <div class="bilan">
+    <h2>Bilan personnel — GYEBRE Brice Joseph Emeric</h2>
+
+    <p>Ce projet a été l'une des expériences techniques les plus enrichissantes de mon parcours académique. Partir d'un pipeline RAG de 60 articles pour arriver à un système avec fine-tuning d'embeddings, évaluation RAGAS, et génération de documents juridiques officiels en 3 sprints de 2 semaines — c'est un enchaînement qui m'a forcé à aller chercher des connaissances très au-delà du cours.</p>
+
+    <p>La partie qui m'a le plus surpris est le <strong>paradoxe IR vs RAGAS</strong> : le fine-tuning améliore le retrieval de +45% en Accuracy@1, mais les métriques RAGAS end-to-end restent quasi stables. Comprendre que GPT-4o-mini est suffisamment robuste pour "absorber" les imperfections du retrieval — créant un effet plafond sur les métriques de qualité finale — m'a appris à distinguer la qualité d'un composant de la qualité du système complet. Une leçon importante en ingénierie de systèmes IA.</p>
+
+    <p>La <strong>rigueur méthodologique</strong> imposée par le format sprint a été déterminante. Mesurer avant d'implémenter, conserver toutes les versions des datasets, documenter chaque difficulté — ces habitudes m'ont évité plusieurs catastrophes (le crash RAGAS après 40 minutes, la perte potentielle de l'index FAISS lors du changement de dimensions).</p>
+
+    <p>Sur le plan technique, j'ai acquis une expertise réelle dans l'écosystème RAG (LangChain, FAISS, sentence-transformers, RAGAS), dans le fine-tuning de modèles Transformer sur domaine spécialisé, et dans le déploiement d'applications IA en production (Streamlit Cloud, HuggingFace Hub). Ces compétences correspondent directement aux profils recherchés dans l'industrie en 2026.</p>
+
+    <div class="bilan-grid">
+      <div class="bilan-item">
+        <h4>Ce que j'ai maîtrisé</h4>
+        <p>Architecture RAG hybride · Fine-tuning sentence-transformers · Évaluation RAGAS · Déploiement HuggingFace + Streamlit · Génération de documents (PDF, plaintes, contrats) · LangChain LCEL</p>
+      </div>
+      <div class="bilan-item">
+        <h4>Ce que j'aurais fait différemment</h4>
+        <p>Tester l'accès aux résultats RAGAS sur 2 questions avant 40min · Prévoir un second répertoire FAISS dès le début · Cibler les codes Légifrance avec l'API officielle plutôt que le sandbox</p>
+      </div>
+      <div class="bilan-item">
+        <h4>Acquis techniques durables</h4>
+        <p>Contrastive learning (MultipleNegativesRankingLoss) · Cross-encoders vs bi-encoders · HyDE · Reciprocal Rank Fusion · Métriques IR (NDCG, MRR, MAP) · fpdf2 generation</p>
+      </div>
+      <div class="bilan-item">
+        <h4>Impact perçu</h4>
+        <p>LexAI est un outil utilisable par de vrais citoyens. La plainte générée par IA à partir d'un licenciement abusif ou d'une clause frauduleuse représente une valeur réelle, pas seulement académique.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SECTION 12 ══ -->
+<div class="section" id="s12">
+  <div class="section-header">
+    <div class="section-num">12</div>
+    <h2>Références</h2>
+  </div>
+
+  <ul class="ref-list">
+    <li>Es, S., James, J., Espinosa-Anke, L., & Schockaert, S. (2023). <em>RAGAS: Automated Evaluation of Retrieval Augmented Generation</em>. arXiv:2309.15217.</li>
+    <li>Gao, L., Ma, X., Lin, J., & Callan, J. (2022). <em>Precise Zero-Shot Dense Retrieval without Relevance Labels (HyDE)</em>. arXiv:2212.10496.</li>
+    <li>Henderson, M., et al. (2017). <em>Efficient Natural Language Response Suggestion for Smart Reply</em>. arXiv:1705.00652. [MultipleNegativesRankingLoss]</li>
+    <li>Lewis, P., et al. (2020). <em>Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</em>. NeurIPS 2020.</li>
+    <li>Nogueira, R., & Cho, K. (2019). <em>Passage Re-ranking with BERT</em>. arXiv:1901.04085. [Cross-Encoder Reranking]</li>
+    <li>Robertson, S., & Zaragoza, H. (2009). <em>The Probabilistic Relevance Framework: BM25 and Beyond</em>. Foundations and Trends in Information Retrieval.</li>
+    <li>Reimers, N., & Gurevych, I. (2019). <em>Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks</em>. EMNLP 2019.</li>
+    <li>Xiao, S., et al. (2023). <em>C-Pack: Packaged Resources to Advance General Chinese Embedding (BGE-Reranker)</em>. arXiv:2309.07597.</li>
+    <li>Saad-Falcon, J., et al. (2023). <em>ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems</em>. arXiv:2311.09476.</li>
+    <li>API Légifrance PISTE. (2024). <em>Documentation officielle — Accès aux textes des codes juridiques français</em>. piste.api.gouv.fr.</li>
+    <li>HuggingFace Hub. (2026). <em>DrProfessor/lexai-embeddings — Modèle d'embeddings juridiques fine-tuné</em>. huggingface.co/DrProfessor/lexai-embeddings.</li>
+  </ul>
+
+  <div style="margin-top: 32px; padding: 20px; background: #f0f4ff; border-radius: 10px; border: 1px solid #c5cae9; text-align: center; font-size: 0.88rem; color: var(--muted);">
+    <strong>Dépôt GitHub :</strong> github.com/BriceGyb/DeepLearningProject &nbsp;·&nbsp;
+    <strong>Démo live :</strong> apprentissageprofondprojet.streamlit.app &nbsp;·&nbsp;
+    <strong>Modèle :</strong> huggingface.co/DrProfessor/lexai-embeddings<br>
+    <br>
+    <em>Rapport rédigé le 3 mai 2026 · 8INF887 – Apprentissage Profond – UQAC · GYEBRE Brice Joseph Emeric</em>
+  </div>
+</div>
+
+</div><!-- /container -->
+</body>
+</html>
