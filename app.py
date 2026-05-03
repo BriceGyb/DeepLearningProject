@@ -384,6 +384,26 @@ elif st.session_state.mode == "plainte":
     st.divider()
 
     with st.form("intake_plainte"):
+        # --- Identité du plaignant ---
+        st.markdown("**Vos informations personnelles**")
+        col_nom, col_adresse, col_ville = st.columns([2, 3, 1])
+        with col_nom:
+            nom_complet = st.text_input(
+                "Nom complet *",
+                placeholder="Ex : Martin Sophie",
+            )
+        with col_adresse:
+            adresse = st.text_input(
+                "Adresse complète *",
+                placeholder="Ex : 12 rue de la Paix, 75001 Paris",
+            )
+        with col_ville:
+            ville = st.text_input(
+                "Ville *",
+                placeholder="Ex : Paris",
+            )
+
+        st.markdown("**Votre litige**")
         col1, col2 = st.columns(2)
 
         with col1:
@@ -426,10 +446,13 @@ elif st.session_state.mode == "plainte":
         )
 
     if submitted:
-        if not all([type_litige, partie_adverse, date_faits, faits, prejudice]):
+        if not all([nom_complet, adresse, ville, type_litige, partie_adverse, date_faits, faits, prejudice]):
             st.error("Veuillez remplir tous les champs obligatoires (*).")
         else:
             intake = {
+                "nom": nom_complet,
+                "adresse": adresse,
+                "ville": ville,
                 "type_litige": type_litige,
                 "partie_adverse": partie_adverse,
                 "date_faits": date_faits,

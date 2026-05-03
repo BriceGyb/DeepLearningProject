@@ -462,6 +462,7 @@ PROMPT_PLAINTE = PromptTemplate(
     input_variables=[
         "type_litige", "partie_adverse", "date_faits", "faits",
         "prejudice", "demarches", "destinataire", "context",
+        "nom", "adresse", "ville", "date_jour",
     ],
     template="""Tu es LexAI, un assistant juridique expert en droit français. Rédige une plainte officielle formelle et juridiquement fondée.
 
@@ -476,6 +477,12 @@ Description des faits  : {faits}
 Préjudice subi         : {prejudice}
 Démarches antérieures  : {demarches}
 
+=== IDENTITÉ DU PLAIGNANT (à utiliser telle quelle, sans crochets) ===
+Nom complet  : {nom}
+Adresse      : {adresse}
+Ville        : {ville}
+Date du jour : {date_jour}
+
 === STRUCTURE OBLIGATOIRE ===
 
 {destinataire}
@@ -484,7 +491,7 @@ OBJET : Plainte pour [qualifie en 1 ligne le litige juridiquement — ex : "lice
 
 Madame, Monsieur,
 
-Je soussigné(e) [VOTRE NOM COMPLET], demeurant [VOTRE ADRESSE COMPLÈTE], ai l'honneur de porter à votre connaissance les faits suivants :
+Je soussigné(e) {nom}, demeurant {adresse}, ai l'honneur de porter à votre connaissance les faits suivants :
 
 **I. EXPOSÉ DES FAITS**
 [Rédige un exposé chronologique, factuel et neutre. Utilise les dates, noms et éléments fournis. Style officiel, impersonnel, sans jugement.]
@@ -499,17 +506,13 @@ RÈGLE ABSOLUE : ne cite JAMAIS un article absent du contexte RAG. Si aucun arti
 [Décrit précisément le préjudice : matériel (chiffré si possible), moral, professionnel, physique.]
 
 **IV. DEMANDES**
-[Formule les demandes concrètes et spécifiques au type de litige : engager des poursuites / condamner à indemniser de [montant] / ordonner la réintégration / etc.]
+[Formule les demandes concrètes et spécifiques au type de litige : engager des poursuites / condamner à indemniser / ordonner la réintégration / etc.]
 
 Dans l'attente de votre réponse, je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations respectueuses.
 
-Fait à [VOTRE VILLE], le [DATE DU JOUR]
+Fait à {ville}, le {date_jour}
 
-[VOTRE NOM COMPLET]
-[VOTRE SIGNATURE]
-
----
-⚠️ Note : Les zones entre [CROCHETS] sont à compléter avec vos informations personnelles avant envoi.
+{nom}
 """,
 )
 
@@ -518,12 +521,20 @@ def generer_plainte(hybrid: "HybridRetriever", reranker, intake: dict) -> tuple:
     """
     Génère une plainte officielle à partir des faits.
 
-    intake: dict — clés: type_litige, partie_adverse, date_faits,
-                         faits, prejudice, demarches (optionnel)
+    intake: dict — clés: type_litige, partie_adverse, date_faits, faits,
+                         prejudice, demarches (optionnel),
+                         nom, adresse, ville
     Retourne: (plainte_text: str, sources: list[Document])
     """
+    import datetime
     config = TYPE_LITIGE_CONFIG.get(intake["type_litige"], {})
     code_filtre = config.get("code_filtre")
+
+    # Date du jour formatée en français
+    mois_fr = ["janvier","février","mars","avril","mai","juin",
+               "juillet","août","septembre","octobre","novembre","décembre"]
+    aujourd_hui = datetime.date.today()
+    date_jour = f"{aujourd_hui.day} {mois_fr[aujourd_hui.month - 1]} {aujourd_hui.year}"
 
     # Requête RAG construite à partir du type de litige + faits
     query = f"litige {intake['type_litige']} : {intake['faits'][:400]}"
@@ -566,6 +577,10 @@ def generer_plainte(hybrid: "HybridRetriever", reranker, intake: dict) -> tuple:
         demarches=intake.get("demarches") or "Aucune démarche préalable effectuée.",
         destinataire=config.get("destinataire", "Monsieur le Président du Tribunal"),
         context=context,
+        nom=intake["nom"],
+        adresse=intake["adresse"],
+        ville=intake["ville"],
+        date_jour=date_jour,
     )
 
     reponse = llm.invoke(prompt_text)
