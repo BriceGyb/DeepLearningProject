@@ -119,7 +119,9 @@ tr:hover td{background:#eef7ee}
 .screenshot-container{margin:22px 0;text-align:center}
 .screenshot{max-width:100%;border-radius:10px;border:1px solid #d4e8db;box-shadow:0 4px 16px rgba(0,0,0,.10)}
 .screenshot-caption{font-size:0.8rem;color:#666;font-style:italic;margin-top:8px;text-align:center}
-.screenshots-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:22px 0}
+.screenshots-row{display:flex;flex-direction:column;gap:32px;margin:22px 0}
+.screenshots-row .screenshot-container{width:100%}
+.screenshots-row .screenshot{width:100%;max-width:100%}
 
 /* ===== TIMELINE ===== */
 .timeline{position:relative;padding-left:32px;margin:20px 0}
@@ -161,7 +163,7 @@ tr:hover td{background:#eef7ee}
   .cover h1{font-size:2rem}
   .cover-meta-grid{grid-template-columns:1fr}
   .toc ol{columns:1}
-  .bilan-grid,.screenshots-row{grid-template-columns:1fr}
+  .bilan-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -234,7 +236,7 @@ tr:hover td{background:#eef7ee}
     <li><a href="#s8">Fonctionnalités Avancées</a></li>
     <li><a href="#s9">Évaluation Globale &amp; Comparaisons</a></li>
     <li><a href="#s10">Difficultés Rencontrées &amp; Solutions</a></li>
-    <li><a href="#s11">Lien avec le Cours 8INF887</a></li>
+    <li><a href="#s11">Perspectives d'amélioration</a></li>
     <li><a href="#s12">Déploiement &amp; Infrastructure</a></li>
     <li><a href="#s13">Bilan &amp; Conclusion</a></li>
   </ol>
@@ -863,66 +865,76 @@ query = base_terms + <span class="str">", "</span> + <span class="str">" ; "</sp
   <p><strong>Solution :</strong> Normalisation Unicode NFC dans LegalTextCleaner + fonction de remplacement des caractères hors-range Latin-1 avant tout appel fpdf2 :</p>
   <pre><code><span class="kw">def</span> <span class="fn">safe_latin1</span>(text: str) -> str:
     <span class="kw">return</span> <span class="str">""</span>.<span class="fn">join</span>(c <span class="kw">if</span> <span class="fn">ord</span>(c) &lt; <span class="num">256</span> <span class="kw">else</span> <span class="str">"?"</span> <span class="kw">for</span> c <span class="kw">in</span> text)</code></pre>
+
+  <h3>D8, Liens Légifrance hallucinés dans les réponses</h3>
+  <p><strong>Problème :</strong> Même lorsque le contenu d'un article est correctement récupéré et cité, GPT-4o-mini génère parfois des <strong>liens hypertext vers Légifrance incorrects ou inventés</strong>. L'article lui-même est réel et bien présent dans le corpus, mais l'URL construite (ex. <code>https://www.legifrance.gouv.fr/codes/article_lc/...</code>) peut ne pas correspondre à l'identifiant officiel de l'article sur le portail Légifrance. Ce problème est distinct de l'hallucination d'articles inexistants (D1) : ici l'article est correct, c'est le lien qui est incorrect.</p>
+  <p><strong>Solution partielle appliquée :</strong> Le prompt système inclut une mise en garde pour ne pas générer de liens Légifrance s'ils ne sont pas explicitement fournis dans le contexte RAG. Cette contrainte réduit les hallucinations de liens mais ne les élimine pas totalement.</p>
+  <p><strong>Recommandation à l'utilisateur :</strong> Les numéros d'articles cités sont fiables (issus du contexte RAG), mais les liens cliquables vers Légifrance doivent être vérifiés manuellement sur <a href="https://www.legifrance.gouv.fr">legifrance.gouv.fr</a> avant toute utilisation officielle. La solution définitive est décrite en perspective P3.</p>
 </div>
+
 
 <!-- ═══ SECTION 11 ═══ -->
 <div class="section" id="s11">
   <div class="section-header">
     <div class="section-num">11</div>
-    <h2>Lien avec le Cours 8INF887</h2>
+    <h2>Perspectives d'amélioration</h2>
   </div>
 
-  <p>LexAI mobilise directement les concepts fondamentaux du cours d'Apprentissage Profond :</p>
-
+  <h3>P1, Couverture partielle du corpus et questions recommandées</h3>
+  <p>LexAI s'appuie sur un corpus de <strong>2 457 articles</strong> issus de 6 codes juridiques français : Code Civil, Code Pénal, Code du Travail, Code de la Consommation, Code de Commerce, et Code de Procédure Pénale. Cette couverture, bien que substantielle pour un projet académique, reste partielle par rapport à l'intégralité du droit français (plus de 80 codes en vigueur).</p>
+  <p>Pour obtenir les meilleures réponses lors d'un test de l'application, il est conseillé d'orienter les questions vers des thématiques directement couvertes par ces 6 codes. Voici des exemples de questions représentatives :</p>
   <table>
-    <tr><th>Concept du cours</th><th>Application dans LexAI</th><th>Fichier / Localisation</th></tr>
+    <tr><th>Domaine</th><th>Exemple de question à poser</th><th>Code concerné</th></tr>
     <tr>
-      <td><strong>Apprentissage par représentation</strong></td>
-      <td>Fine-tuning d'embeddings : adapter l'espace vectoriel latent du MiniLM générique au domaine juridique français</td>
-      <td><code>finetune_embeddings.ipynb</code></td>
+      <td><strong>Droit du travail</strong></td>
+      <td>"Quelles sont les règles de licenciement d'une femme enceinte ?"</td>
+      <td>Code du Travail</td>
     </tr>
     <tr>
-      <td><strong>Apprentissage contrastif</strong></td>
-      <td>MultipleNegativesRankingLoss : maximise la similarité cosinus (query, article pertinent) et minimise avec 127 négatifs in-batch</td>
-      <td><code>finetune_embeddings.ipynb</code></td>
+      <td><strong>Droit de la famille</strong></td>
+      <td>"Quelles sont les obligations alimentaires entre parents et enfants ?"</td>
+      <td>Code Civil</td>
     </tr>
     <tr>
-      <td><strong>Transfer learning</strong></td>
-      <td>Adaptation d'un modèle pré-entraîné générique (MiniLM multilingual) au domaine spécialisé juridique avec 6 531 paires seulement</td>
-      <td><code>rag_lexai.py</code> l.33–43</td>
+      <td><strong>Droit pénal</strong></td>
+      <td>"Quelle est la définition juridique du vol aggravé ?"</td>
+      <td>Code Pénal</td>
     </tr>
     <tr>
-      <td><strong>Modèles de langage (LLM)</strong></td>
-      <td>GPT-4o-mini pour génération, évaluation RAGAS, génération de HyDE, génération de paires d'entraînement, rédaction de plaintes</td>
-      <td><code>rag_lexai.py</code></td>
+      <td><strong>Droit de la consommation</strong></td>
+      <td>"Quels sont mes droits en cas de vice caché sur un produit acheté ?"</td>
+      <td>Code de la Consommation</td>
     </tr>
     <tr>
-      <td><strong>Architectures Transformer / Attention</strong></td>
-      <td>Cross-Encoder BGE-Reranker : attention croisée (query, document). Comparaison bi-encoder (FAISS) vs cross-encoder (Reranker)</td>
-      <td><code>rag_lexai.py</code> l.285–309</td>
+      <td><strong>Droit commercial</strong></td>
+      <td>"Quelles sont les obligations d'un gérant de SARL ?"</td>
+      <td>Code de Commerce</td>
     </tr>
     <tr>
-      <td><strong>Évaluation de modèles</strong></td>
-      <td>RAGAS (Faithfulness, Ctx Precision, Recall) + métriques IR (Accuracy@k, nDCG@10, MRR@10, MAP@100) sur benchmark lexai-juridique</td>
-      <td><code>evaluate_ragas.py</code>, <code>finetune_metrics.json</code></td>
-    </tr>
-    <tr>
-      <td><strong>RAG, Retrieval-Augmented Generation</strong></td>
-      <td>Architecture RAG hybride complète : HyDE + BM25 + FAISS + RRF + CrossEncoder → LLM. Application réelle : accès à la justice</td>
-      <td><code>rag_lexai.py</code> (complet)</td>
+      <td><strong>Procédure pénale</strong></td>
+      <td>"Quels sont les droits d'une personne placée en garde à vue ?"</td>
+      <td>Code de Procédure Pénale</td>
     </tr>
   </table>
+  <p>Des questions portant sur des domaines non couverts (droit fiscal, droit de la santé, droit de l'environnement, droit administratif...) risquent de produire des réponses incomplètes ou des hallucinations, faute de contexte pertinent dans le corpus.</p>
 
-  <h3>11.1 Dimension éthique de l'IA juridique</h3>
-  <p>Ce projet m'a sensibilisé aux enjeux éthiques de l'IA dans le domaine juridique. LexAI est conçu comme un <strong>outil d'aide à la compréhension</strong>, jamais comme un substitut à un avocat. Plusieurs garde-fous ont été délibérément intégrés :</p>
+  <h3>P2, Système d'authentification et persistance de la mémoire de chat</h3>
+  <p>Actuellement, LexAI ne dispose d'aucun mécanisme d'identification utilisateur. Chaque session Streamlit est anonyme et stateless : l'historique de conversation est perdu dès la fermeture du navigateur. Cela limite fortement l'utilité pratique de l'assistant dans un usage réel.</p>
+  <p>Une amélioration majeure consisterait à implémenter un <strong>système d'authentification</strong> (OAuth2, Streamlit-Authenticator ou Supabase Auth) couplé à une <strong>base de données de persistance</strong> (PostgreSQL ou Supabase) pour stocker l'historique des conversations par utilisateur. Cela permettrait :</p>
   <ul>
-    <li>Chaque réponse inclut un disclaimer explicite ("Cette plainte est une aide à la rédaction générée par IA... Elle ne remplace pas les conseils d'un avocat")</li>
-    <li>Les articles sources Légifrance sont toujours cités et vérifiables par l'utilisateur</li>
-    <li>Température = 0 pour minimiser les variations non déterministes</li>
-    <li>Instruction "RÈGLE ABSOLUE : ne cite JAMAIS un article absent du contexte" dans chaque prompt</li>
+    <li>De retrouver ses conversations précédentes et reprendre une consultation juridique en cours</li>
+    <li>D'adapter les réponses au profil de l'utilisateur (situation familiale, région, type de litige connu)</li>
+    <li>De permettre un suivi de dossier dans le temps (ex. progression d'une plainte déposée)</li>
+    <li>D'enrichir le corpus par feedback implicite : les questions fréquentes permettraient d'identifier les lacunes de couverture du corpus</li>
   </ul>
-  <p>L'accès à la justice est un droit fondamental. LexAI est une modeste contribution à réduire l'asymétrie d'information entre citoyens et système juridique.</p>
+
+  <h3>P3, Correction des liens Légifrance par enrichissement des métadonnées</h3>
+  <p>Comme documenté en D8, les liens hypertext vers Légifrance générés dans les réponses sont parfois incorrects. La solution pérenne est d'inclure l'URL officielle de chaque article (<code>https://www.legifrance.gouv.fr/codes/article_lc/...</code>) directement dans les métadonnées des chunks lors de l'ingestion du corpus. Le LLM pourrait alors injecter des liens vérifiés sans les construire de mémoire.</p>
+
+  <h3>P4, Extension du corpus et mise à jour automatique</h3>
+  <p>L'API officielle Légifrance (PISTE, Plateforme d'Intermédiation des Services pour la Transformation de l'État) permet une récupération programmatique de l'intégralité des textes de loi en vigueur, avec versioning. L'intégration de cette API permettrait une mise à jour automatique du corpus à chaque modification législative, garantissant que LexAI reflète toujours le droit en vigueur, sans intervention manuelle.</p>
 </div>
+
 
 <!-- ═══ SECTION 12 ═══ -->
 <div class="section" id="s12">

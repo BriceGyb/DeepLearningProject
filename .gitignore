@@ -25,3 +25,7 @@ pipeline_outputs.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude Code (outil interne, ne pas exposer)
+.claude/
+*.docx
