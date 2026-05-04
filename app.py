@@ -319,18 +319,6 @@ with st.sidebar:
     langue_code = "en" if "English" in langue else "fr"
     st.divider()
 
-    # Country filter (future placeholder)
-    st.markdown("**Jurisdiction**")
-    pays = st.selectbox(
-        "Country",
-        ["🇫🇷 France", "🇧🇪 Belgium (coming soon)", "🇨🇭 Switzerland (coming soon)", "🇲🇦 Morocco (coming soon)", "🇸🇳 Senegal (coming soon)"],
-        help="More jurisdictions will be available soon.",
-    )
-    if pays != "🇫🇷 France":
-        st.info("This jurisdiction will be available in a future version.")
-
-    st.divider()
-
     # Legal code filter
     st.markdown("**Legal Code**")
     CODES_DISPONIBLES = [
